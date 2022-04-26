@@ -11,8 +11,6 @@ await ensureDir("tmp/spec");
 
 const cmd = Deno.args[0] || "full";
 
-import "./FaunaDB.ts";
-import {slow} from "./FaunaDB.migrate.ts";
 import "./CLI.ts";
 import "./Array.ts";
 import "./Function.ts";
@@ -27,7 +25,6 @@ if (cmd === "full") {  }
 
 switch (cmd) {
   case "full": {
-    slow();
     await finish();
     break;
   }
