@@ -21,8 +21,9 @@ if (match(".gitignore")) {
   await create_from_template("gitignore", ".gitignore");
 } // if
 
-if (match("sh bin/update")) {
-  await create_from_template("bin_update.sh", "bin/update");
+if (match("sh <bin/upgrade|sh/upgrade>")) {
+  const [file] = values() as string[];
+  await create_from_template("bin_update.sh", file);
 } // if
 
 if (match("ts bin/test")) {

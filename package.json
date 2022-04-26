@@ -9,7 +9,7 @@
   "dependencies": {
   },
   "devDependencies": {
-    "faunadb": "^4.4.2"
+    "faunadb": "*"
   },
   "repository": {
     "type": "git",
@@ -18,10 +18,10 @@
   "keywords": [
     "fluffy_fantasy"
   ],
-  "author": "The little kitten that followed you on your way home.",
+  "author": "da99",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/da99/Evan/issues"
+    "url": "https://github.com/da99/da.ts/issues"
   },
-  "homepage": "https://github.com/da99/Evan#readme"
+  "homepage": "https://github.com/da99/da.ts#readme"
 }
