@@ -21,7 +21,7 @@ export async function is_file(raw: string) {
   }
 } // func
 
-export async function defaault_read_text_file(default_x: any, file_path: string) {
+export async function default_read_text_file(default_x: any, file_path: string) {
   try {
     return await Deno.readTextFile(file_path);
   } catch (e) {
