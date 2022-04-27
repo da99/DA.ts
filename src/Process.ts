@@ -1,8 +1,10 @@
 
-import {inspect} from "../src/CLI.ts";
+import {inspect} from "../src/Shell.ts";
 import {split_whitespace, flatten_cmd} from "../src/String.ts";
 import { bold, red, green, yellow, bgRed, white } from "https://deno.land/std/fmt/colors.ts";
 // import { sleep } from "https://deno.land/x/sleep/mod.ts";
+
+export type VERBOSE_LEVEL = "verbose" | "verbose-exit" | "verbose-fail" | "quiet";
 
 export interface Result {
   cmd:     string[];
@@ -109,9 +111,9 @@ export async function throw_on_fail(pr: Promise<Result>) {
 } // export async function
 
 export async function run(
-  arr: string | string[],
-  std: | "inherit" | "piped" | "null" | number = "piped",
-  verbose: "verbose" | "verbose-exit" | "verbose-fail" | "quiet" = "quiet"
+  arr:     string | string[],
+  std:     "inherit" | "piped" | "null" | number = "piped",
+  verbose: VERBOSE_LEVEL = "quiet"
 ): Promise<Result> {
   const cmd    = flatten_cmd([arr]);
   let stdout   = "";

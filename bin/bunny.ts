@@ -1,7 +1,7 @@
 #!/usr/bin/env -S deno run --allow-run=fd,find,git,bat --allow-net=storage.bunnycdn.com --allow-env --allow-read=./ --allow-write=./
 
 // import * as path from "https://deno.land/std/path/mod.ts";
-import {meta_url, match, not_found, inspect, IS_VERBOSE} from "../src/CLI.ts";
+import {meta_url, match, not_found, inspect, IS_VERBOSE} from "../src/Shell.ts";
 import {run} from "../src/Process.ts";
 import { green, red, yellow, bold } from "https://deno.land/std/fmt/colors.ts";
 import {content_type, human_bytes, MB, sort_by_key, count} from "../src/Function.ts";

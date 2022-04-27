@@ -1,6 +1,6 @@
 
-import {meta_url, about, match, values, not_found} from "../src/CLI.ts";
-import {Text_File, find_parent_file} from "../src/FS.ts";
+import {meta_url, about, match, values, not_found} from "../src/Shell.ts";
+import {Text_File, find_parent_file} from "../src/Shell.ts";
 import {split_whitespace, insert_after_line_contains} from "../src/String.ts";
 
 import {exists, ensureDirSync} from "https://deno.land/std/fs/mod.ts";

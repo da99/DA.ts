@@ -1,6 +1,6 @@
 #!/usr/bin/env -S deno run --allow-write="src/FaunaDB.ts,src/Node-FaunaDB.mjs" --allow-read="src/FaunaDB.ts,src/Node-FaunaDB.mjs"
 
-import { Text_File } from "../src/FS.ts";
+import { Text_File } from "../src/Shell.ts";
 import { each_block } from "../src/String.ts";
 
 const COMMANDS = {

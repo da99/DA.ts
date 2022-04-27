@@ -1,10 +1,10 @@
 import { describe, it, equals, matches } from "../src/Spec.ts";
 import {
+  shell_string, shell_lines,
   lines, table,
   Lines, Table,
   fd, find,
-  human_position_to_indexes,
-  column_indexes, row_indexes
+  human_position_to_indexes, column_indexes, row_indexes
 } from "../src/Shell.ts";
 
 import {
@@ -26,6 +26,24 @@ function five_x_five(x: "a" | 0 = 0) {
 } // function
 
 // =============================================================================
+describe("shell_string");
+// =============================================================================
+
+it("returns string", async () => {
+  const actual = (await shell_string('ls', '-1'))
+  equals(typeof actual, 'string');
+})
+
+// =============================================================================
+describe("shell_lines");
+// =============================================================================
+
+it("returns Lines", async () => {
+  const actual = (await shell_lines('ls', '-1')).constructor
+  equals(actual, Lines);
+})
+
+// =============================================================================
 describe("fd");
 // =============================================================================
 
@@ -42,6 +60,7 @@ it("turns the output into values in the row", async () => {
 // =============================================================================
 describe("find");
 // =============================================================================
+
 it("returns Lines", async () => {
   const actual = (await find(`src -maxdepth 1 -name *.ts`)).constructor
   equals(actual, Lines);

@@ -2,7 +2,8 @@
 // import * as path from "https://deno.land/std/path/mod.ts";
 // import type {Result} from "./Process.ts";
 
-import {run, throw_on_fail} from "./Process.ts";
+import { flatten_cmd, split_whitespace } from "./String.ts";
+import {run, throw_on_fail, split_cmd} from "./Process.ts";
 import {rearrange} from "./Array.ts";
 import {
   not,
@@ -11,7 +12,36 @@ import {
   is_length_0, is_any,
   tail_count
 } from "./Function.ts";
+
+import * as path from "https://deno.land/std/path/mod.ts";
+import { bold, green, yellow, blue } from "https://deno.land/std/fmt/colors.ts";
+import { readerFromStreamReader } from "https://deno.land/std/streams/conversion.ts"
+import {
+  emptyDirSync,
+  existsSync,
+  ensureDir,
+  ensureDirSync
+} from "https://deno.land/std/fs/mod.ts";
+
+
 import type {Arrange_Spec} from "./Array.ts";
+import type {VERBOSE_LEVEL, Result} from "./Process.ts";
+
+// =============================================================================
+// Top level constants and variables:
+// =============================================================================
+
+export let IS_VERBOSE = Deno.args.filter(x => x === "-v" || x === "--verbose").length > 0;
+
+// =============================================================================
+// Types:
+// =============================================================================
+
+export interface SHELL_OPTIONS {
+  throw?: boolean;
+  verbose?: VERBOSE_LEVEL;
+  io?: "inherit" | "piped";
+};
 
 export type Human_Position =
   "top row" | "bottom row" | "middle rows" |
@@ -27,26 +57,52 @@ export interface Loop_Info {
   last:  boolean;
 };
 
-export async function shell(cmd: string, args: string | string[]) {
-  if (typeof args === "string")
-    args = args.trim().split(/\s+/);
-  const result = await throw_on_fail(run([cmd].concat(args), "piped", "quiet"));
-  return lines(result.stdout);
+// =============================================================================
+// Shell functions:
+// =============================================================================
+
+function stderr(r: Result): void {
+  if (r.stderr !== "")
+    console.error(`--- ${bold(r.cmd[0])} ${Deno.inspect(r.cmd.slice(1))}: ${yellow(r.stderr)}`);
+} // function
+
+export async function shell(
+  cmd:  string,
+  args: string | string[],
+  throwable = true
+): Promise<void> {
+  args = split_cmd(args);
+  const proc = run([cmd].concat(args), "inherit", verbosity());
+  await ((throwable) ? throw_on_fail(proc): proc);
 } // export async
 
-export async function shell_ignore_errors(cmd: string, args: string | string[]) {
-  if (typeof args === "string")
-    args = args.trim().split(/\s+/);
-  const result = await run([cmd].concat(args), "piped", "quiet");
-  return lines(result.stdout);
+export async function shell_string(
+  cmd:  string,
+  args: string | string[],
+  throwable = true
+): Promise<string> {
+  args = split_cmd(args);
+  const proc = run([cmd].concat(args), "piped", verbosity());
+  const result = (await ((throwable) ? throw_on_fail(proc): proc));
+  stderr(result)
+  return result.stdout.trim();
 } // export async
 
-export async function fd(args: string | string[]) {
-  return await shell("fd", args);
+export async function shell_lines(
+  cmd:  string,
+  args: string | string[],
+  throwable = true
+): Promise<Lines> {
+  const str = await shell_string(cmd, args, throwable);
+  return lines(str);
 } // export async
 
-export async function find(args: string | string[]) {
-  return await shell("find", args);
+export async function fd(args: string | string[]): Promise<Lines> {
+  return await shell_lines("fd", args);
+} // export async
+
+export async function find(args: string | string[]): Promise<Lines> {
+  return await shell_lines("find", args);
 } // export async
 
 export function lines(x: string | string[]) {
@@ -56,6 +112,10 @@ export function lines(x: string | string[]) {
 export function table(x: any[] | any[][]): Table {
   return new Table(x);
 } // export function
+
+// =============================================================================
+// Lines:
+// =============================================================================
 
 export class Lines {
   readonly raw: string[];
@@ -111,6 +171,10 @@ export class Lines {
     return Promise.all(this.raw.map(f));
   } // method
 } // class
+
+// =============================================================================
+// Table:
+// =============================================================================
 
 export class Table {
   raw: any[][];
@@ -617,3 +681,522 @@ export function row_indexes(n: number, arr: any[][]): number[][] {
   } // for
   return fin;
 } // export function
+
+// =============================================================================
+// CLI:
+// =============================================================================
+
+export function verbosity() {
+  return IS_VERBOSE ? "verbose" : "quiet";
+} // export function
+
+export function inspect(x: any) {
+  return Deno.inspect(
+    x,
+    {compact: true, showHidden: false, depth: Infinity, colors: true}
+  );
+} // export
+
+export function raw_inspect(x: any) {
+  return Deno.inspect(
+    x,
+    {
+      compact: true,
+      showHidden: false,
+      depth: Infinity,
+      colors: false
+    }
+  );
+} // export
+
+type Action = (...args: string[]) => void;
+type Pattern_Element = string | 0 | string[];
+type Pattern = Array<Pattern_Element>;
+
+interface Command {
+  raw_cmd: string;
+  pattern: Array<Pattern_Element>;
+  action: Action;
+} // interface
+
+function is_pattern(x: string) {
+  const first_char = x.charAt(0);
+  return first_char === '[' || first_char === '<';
+} // function
+
+function inner_pattern(s: string) {
+  return s.substring(1, s.length - 1);
+} // function
+
+function is_menu(s: string) {
+  return s.indexOf('|') > 0;
+} // function
+
+function* gen(arr: string[]) {
+  for (const x of arr) {
+    yield x;
+  }
+} // function*
+
+export function get_vars(raw_cmd: string, user_input: string[]) : false | Array<string | string[]> {
+  const patterns = split_cli_command(raw_cmd);
+  const inputs   = gen(user_input);
+
+  let vars: Array<string | string[]> = [];
+  let used_inputs: string[]          = [];
+  let i_done = false;
+
+
+  for (const pattern of patterns) {
+    const i_next = inputs.next();
+    const i      = i_next.value;
+    i_done       = i_next.done || false;
+
+    if (!is_pattern(pattern)) {
+      if (i !== pattern)
+        return false;
+      continue;
+    }
+
+    const inner = inner_pattern(pattern);
+
+    if (inner === "...args") {
+      const _args = (!i_done) ? [i, ...inputs] : [...inputs];
+      if (pattern.indexOf('<') === 0 && _args.length === 0)
+        return false;
+      vars.push(_args as string[]);
+      return vars;
+    }
+
+    if (!is_menu(inner)) {
+      if (pattern.indexOf('<') === 0) {
+        if (i_done)
+          return false;
+      } // if
+      if (pattern.indexOf('[') === 0) {
+        if (i_done)
+          continue
+      } // if
+
+      vars.push(i as string);
+      continue;
+    } // if
+
+    /* It's a menu: cmd <a|b|c>, cmd [a|b|c], cmd [*a|b|c] */
+    const menu = inner.split('|');
+    if (pattern.indexOf('<') === 0) {
+      if (i_done)
+        return false;
+    } // if
+    if (pattern.indexOf('[') === 0) {
+      if (i_done && menu[0].indexOf('*') === 0) {
+        vars.push(menu[0].replace('*', ""));
+        continue;
+      }
+    } // if
+
+    if (!menu.includes(i as string))
+      return false;
+    vars.push(i as string);
+  } // for
+
+
+  const i_next = inputs.next();
+  if (!i_next.done)
+    return false;
+
+  return vars;
+} // function
+
+let _user_input: string[] = [];
+let _vars: Array<string | string[]> = [];
+let is_found = false;
+let is_help = false;
+let filename = path.basename(import.meta.url);
+let _import_meta_url = "file:///unknown_project/bin/unknown";
+
+args(Deno.args);
+
+export function meta_url(url: string) {
+  _import_meta_url = url;
+  return about();
+} // export function
+
+export function about() {
+  const file = (new URL(_import_meta_url)).pathname;
+  const dir  = path.dirname(file);
+  const bin  = file.split('/').slice(-2).join('/');
+  const project_dir = file.replace(`/${bin}`, "");
+  return { file, dir, bin, project_dir };
+} // export function
+
+export function values() {
+  return _vars;
+} // export
+
+export function args(i: string[]) {
+  _user_input = i;
+  switch(_user_input[0]) {
+    case "-h":
+      case "help":
+      case "--help": {
+      is_help = true;
+      break;
+    }
+    default:
+      is_help = false;
+  } // switch
+} // export
+
+export function print_help(raw_cmd: string, desc: string) {
+  const search = _user_input[1];
+  if (search && raw_cmd.indexOf(search) === -1) {
+    return false;
+  }
+
+  const pieces = split_cli_command(raw_cmd).map((x, i) => {
+    if (i === 0)
+      return bold(blue(x));
+    if (x.indexOf('|') > 0)
+      return yellow(x);
+    if (x.indexOf('<') > -1)
+      return green(x);
+    return x;
+  });
+  console.log(` ${pieces.join(" ")}`);
+  if (desc.trim().length > 0) {
+    console.log(`  ${desc.trim()}`);
+  }
+  return true;
+} // export
+
+export function match(pattern: string, desc: string = "") {
+  if (is_help) {
+    print_help(pattern, desc);
+  } // if is_help
+
+  if (is_found)
+    return false;
+
+  const new_vars = get_vars(pattern, _user_input);
+
+  if (new_vars) {
+    _vars = new_vars;
+    is_found = true;
+  }
+  return !!new_vars;
+} // function
+
+export function not_found() {
+  match("help|--help|-h [search]");
+  if (is_found || is_help)
+    return false;
+  console.error(`Command not recognized: ${_user_input.map(x => Deno.inspect(x)).join(" ")}`);
+  Deno.exit(1);
+}
+
+export function split_cli_command(raw_s: string) : Array<string> {
+  const s = raw_s.trim().replace(/\s+/g, " ");
+  const words: Array<string> = [];
+  let current_bracket: null | string = null;
+  let current_word: string[] = [];
+  let next_char: undefined | string = "";
+  let last_was_open_bracket = false;
+  let next_is_closing_bracket = false;
+  let last_was_pipe = false;
+  let next_is_pipe = false;
+  let last_c = "";
+
+  let i = -1;
+  let fin = s.length - 1;
+  for (const c of s) {
+    ++i;
+    next_char = s.charAt(i+1);
+    next_is_closing_bracket = next_char === ']' || next_char === '>';
+    next_is_pipe = next_char === '|'
+    switch (c) {
+      case "[":
+      case "<": {
+        current_bracket = c;
+        current_word = [c];
+        break;
+      }
+
+      case ">":
+      case "]": {
+        current_word.push(c);
+        current_bracket = null
+        const new_word = current_word.join("");
+        if (i !== fin && (new_word === "<...args>" || new_word === "[...args]")) {
+          throw new Error(`${new_word} has to be the last element in the pattern: ${s}.`);
+        }
+        words.push(new_word);
+        current_word = [];
+        break;
+      }
+
+      case " ": {
+        if (current_bracket) {
+          if (!last_was_pipe && !next_is_pipe && !last_was_open_bracket && !next_is_closing_bracket && last_c !== c) {
+            current_word.push(c);
+          }
+        } else {
+          if (current_word.length !== 0) {
+            words.push(current_word.join(""));
+            current_word = [];
+          }
+        }
+        break;
+      }
+
+      default:
+        current_word.push(c);
+        if (i === fin) {
+          words.push(current_word.join(""));
+          current_word = [];
+        }
+    } // switch
+    last_c = c;
+    last_was_open_bracket = last_c === '[' || last_c === '<';
+    last_was_pipe = last_c === '|'
+  } // for
+  return words; // .map(x => x.replace(/\s*\|\s*/g, "|"));
+} // function
+
+
+export async function template(
+  tmpl:     string,
+  new_file: string,
+  values:   Record<string, string | number> = {}
+) {
+  let tmpl_contents = "";
+  if (tmpl.trim().toLowerCase().indexOf("http") === 0) {
+    tmpl_contents = await fetch(tmpl).then(x => x.text());
+  } else {
+    tmpl_contents = await Deno.readTextFile(tmpl);
+  }
+
+  const info = path.parse(new_file);
+  const {dir}  = info;
+
+  try {
+    await Deno.stat(new_file);
+    const contents = await Deno.readTextFile(new_file);
+    if (contents.trim().length > 0) {
+      console.error(`=== File already exists: ${new_file}`);
+      return contents;
+    }
+  } catch (e) {
+    // continue
+  }
+
+  await ensureDir(dir);
+
+  await Deno.writeTextFile(new_file, compile_template(tmpl_contents, values));
+  const new_contents = await Deno.readTextFile(new_file);
+  if ((new_contents || "").indexOf("#!") === 0) {
+    await Deno.chmod(new_file, 0o700);
+  }
+  console.log(`=== Wrote: ${new_file}`);
+} // function
+
+export function compile_template(tmpl_contents: string, vars: Record<string, string | number>) {
+  for (const [k,v] of Object.entries(vars)) {
+    tmpl_contents = tmpl_contents.replaceAll(`{${k}}`, v.toString());
+  } // for
+  return tmpl_contents;
+} // function
+// =============================================================================
+// Script Helpers:
+// Based on the deno CLI APIs: https://doc.deno.land/deno/stable/
+// =============================================================================
+
+export function chmod(f: string, n: number) {
+  return Deno.chmodSync(f, n)
+} // export function
+
+
+export function copy_file(src: string, dest: string) {
+  return Deno.copyFileSync(src, dest);
+} // export function
+
+export function cwd() {
+  return Deno.cwd();
+} // export function
+
+export function move(a: string, b: string) {
+  return Deno.renameSync(a, b);
+} // export function
+
+export function rename(a: string, b: string) {
+  return Deno.renameSync(a, b);
+} // export function
+
+export function stat(f: string) {
+  return Deno.statSync(f);
+} // export function
+
+export function symbolic_link(src: string, dest: string) {
+  return Deno.symlinkSync(src, dest);
+} // export function
+
+export function write_text_file(f: string, content: string) {
+  return Deno.writeTextFileSync(f, content);
+} // export function
+
+export async function fetch_text(u: string | Request) {
+  return fetch(u).then(x => x.text());
+} // export async function
+
+export async function fetch_json(u: string | Request) {
+  return fetch(u).then(x => x.json());
+} // export async function
+
+export function ensure_dir(s: string) {
+  return ensureDirSync(s);
+} // export function
+
+export async function is_directory(raw: string) {
+  try {
+    const result = await Deno.stat(raw);
+    return result.isDirectory;
+  } catch (err) {
+    return false;
+  }
+} // func
+
+export async function is_file(raw: string) {
+  try {
+    const result = await Deno.stat(raw);
+    return result.isFile;
+  } catch (err) {
+    return false;
+  }
+} // func
+
+export async function default_read_text_file(default_x: any, file_path: string) {
+  try {
+    return await Deno.readTextFile(file_path);
+  } catch (e) {
+    return default_x;
+  }
+} // export async function
+
+/*
+ * Text_File: The file does not have to exist.
+ */
+export class Text_File {
+  __filename: string;
+  __contents: string | null;
+
+  constructor(x: string) {
+    this.__filename = x;
+    this.__contents = null;
+  } // constructor
+
+  get not_empty() {
+    return (this.text || "").trim().length > 0;
+  } // get
+
+  get filename() {
+    return this.__filename;
+  } // get
+
+  get lines() : string[] {
+    const body = this.text;
+    if (body) {
+      return body.split(/\n/);
+    }
+    return [];
+  } // get
+
+  get text() {
+    if (!this.__contents) {
+      try {
+        this.__contents = Deno.readTextFileSync(this.filename);
+      } catch(e) {
+        switch (e.name) {
+          case "NotFound":
+            // ignored
+            break;
+          default: { throw e; }
+        } // switch
+      } // try/catch
+    } // if
+
+    if ((this.__contents || "").trim().length === 0) {
+      return null;
+    }
+    return this.__contents;
+  } // get
+
+  get exists() : boolean{
+    try {
+      if (Deno.lstatSync(this.filename)) {
+        return true;
+      }
+    } catch (e) {
+      if (e.name !== "NotFound") throw e;
+    }
+    return false;
+  } // get
+
+  write(s: string) {
+    Deno.writeTextFileSync(this.filename, s);
+    this.__contents = null;
+    return this;
+  } // method
+
+  delete() {
+    try {
+      Deno.removeSync(this.filename);
+    } catch (e) {
+      // ignored for now.
+    }
+
+    return this;
+  } // method
+
+} // class
+
+export function find_parent_file(file_name: string, dir: string) {
+  let current_dir = dir;
+  let fin_path = null;
+  while (current_dir && current_dir !== "." && current_dir !== "/" && current_dir !== "") {
+    try {
+      Deno.statSync(path.join(current_dir, file_name));
+      fin_path = path.join(current_dir, file_name);
+      break;
+    } catch (e) {
+      current_dir = path.dirname(current_dir);
+    }
+  } // while
+  return fin_path;
+} // export
+
+
+export async function download(url: string, file: string) {
+  const resp = await fetch(url);
+  const rdr = resp.body?.getReader();
+  if (!rdr) {
+    throw new Error(`Unable to get a response from ${url}`);
+  } // if
+  try {
+    const stat = await Deno.stat(file);
+    throw new Error(`Already exists: ${file}`);
+  } catch (e) {
+      const r = readerFromStreamReader(rdr);
+      let f = null;
+      try {
+        f = await Deno.open(file, {create: true, write: true});
+        await Deno.copy(r, f);
+      } catch (e) {
+        if (f)
+          f.close();
+        throw e;
+      }
+      if (f)
+        f.close();
+  }
+  return true;
+} // export async function

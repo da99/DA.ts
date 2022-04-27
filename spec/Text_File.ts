@@ -1,6 +1,6 @@
 import { describe, it } from "../src/Spec.ts";
 import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
-import { Text_File, find_parent_file } from "../src/FS.ts";
+import { Text_File, find_parent_file } from "../src/Shell.ts";
 
 describe("Text_File.find_parent_file");
 

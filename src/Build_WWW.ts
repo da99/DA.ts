@@ -6,9 +6,8 @@
 
 import {emptyDir, existsSync, ensureDirSync, ensureDir} from "https://deno.land/std/fs/mod.ts";
 import nunjucks from "https://deno.land/x/nunjucks/mod.js";
-import {verbose} from "./CLI.ts";
 import {throw_on_fail, run} from "./Process.ts";
-import {download} from "./FS.ts";
+import {download} from "./Shell.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 import { bold, yellow } from "https://deno.land/std/fmt/colors.ts";
 
@@ -148,16 +147,14 @@ export async function build_www(group: "css"|"js"|"html", public_path: string, R
 } // export async function
 
 export async function download_normalize_css(vendor: string) {
-  return await verbose(
-    download,
+  return await download(
     "https://necolas.github.io/normalize.css/latest/normalize.css",
     path.join(vendor, "normalize.css")
   );
 } // export async function
 
 export async function download_alpine_js(vendor: string) {
-  return await verbose(
-    download,
+  return await download(
     "https://unpkg.com/alpinejs@latest/dist/cdn.min.js",
     path.join(vendor, "alpine.js")
   );

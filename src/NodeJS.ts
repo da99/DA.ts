@@ -3,7 +3,7 @@
 // import { ensureDirSync } from "https://deno.land/std/fs/mod.ts";
 // import * as path from "https://deno.land/std/path/mod.ts";
 //
-import {download} from "../src/FS.ts";
+import {download} from "../src/Shell.ts";
 import {run} from "../src/Process.ts";
 import { yellow, bold } from "https://deno.land/std/fmt/colors.ts";
 
