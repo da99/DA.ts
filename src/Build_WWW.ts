@@ -14,9 +14,7 @@ import { bold, yellow } from "https://deno.land/std/fmt/colors.ts";
 const DEFAULT_OPTIONS = {
   "worker.ts":   "./src/worker.ts",
   "worker.js":   "./dist/worker.mjs",
-  "html":        {},
-  "public":      "./src/Public",
-  "public_dist": "./dist/Public"
+  "html":        {}
 };
 
 function _run(cmd: string) {
@@ -54,60 +52,12 @@ export async function build_worker(WORKER_TS: string, WORKER_JS: string) {
   print_wrote(new_file);
 } // export async function
 
-export async function build_public(in_dir: string, out_dir: string, site: Record<string, any>) {
-  await ensureDir(out_dir);
-  await emptyDir(out_dir);
-
-  const promises: Promise<void>[] = [];
-  const { stdout } = await _run(
-    `find ${in_dir} -type f -iname *.less -o -iname *.ts -o -iname *.njk`,
-  );
-  const files = stdout.split("\n").filter(
+export async function raw_www_files(dir = "./") {
+  const { stdout } = await _run( `find ${dir} -type f -iname *.less -o -iname *.ts -o -iname *.njk`,);
+  return stdout.trim().split('\n').filter(
     (x) => x.trim() !== "" && path.basename(x).charAt(0) !== "_"
   );
-  assert_files_in(in_dir, files);
-
-  for (const d of new Set(files.map((x) => path.dirname(x)))) {
-    await ensureDir(d.replace(in_dir, out_dir));
-  }
-
-  for (const f of files) {
-    promises.push(compile_file(in_dir, out_dir, f, site));
-  }
-  return await Promise.all(promises);
 } // export async function
-
-async function compile_file(in_dir: string, out_dir: string, filename: string, site: Record<string, any>) {
-  const ext = path.extname(filename);
-  switch (ext) {
-    case ".ts": {
-      const new_file = filename.replace(in_dir, out_dir).replace(/.ts$/, ".js");
-      const content = await js(filename);
-      await Deno.writeTextFile(new_file, content);
-      print_wrote(new_file);
-      break;
-    }
-    case ".less": {
-      const new_file = filename.replace(in_dir, out_dir).replace(
-        /.less$/,
-        ".css",
-      );
-      const  stdout = await css(filename);
-      await Deno.writeTextFile(new_file, stdout);
-      print_wrote(new_file);
-      break;
-    }
-    case ".njk": {
-      const new_file = filename.replace(in_dir, out_dir).replace(
-        /\.njk$/,
-        ".html",
-      );
-      await Deno.writeTextFile(new_file, html(filename, site));
-      print_wrote(new_file);
-      break;
-    }
-  } // switch
-} // async function
 
 function assert_files_in(dir: string, files: string[]) {
   if (files.length === 0) {
@@ -180,14 +130,14 @@ export async function build_app(group: "app"|"public"|"worker"|"update", RAW_CON
   switch (group) {
     case "app": {
       await Promise.all([
-        build_public(PUBLIC, PUBLIC_DIST, HTML_CONFIG),
+        build_public(HTML_CONFIG),
         build_worker(WORKER_TS, WORKER_JS)
       ]);
       break;
     }
 
     case "public": {
-      await build_public(PUBLIC, PUBLIC_DIST, HTML_CONFIG);
+      await build_public(HTML_CONFIG);
       break;
     }
 
@@ -206,4 +156,46 @@ export async function build_app(group: "app"|"public"|"worker"|"update", RAW_CON
     }
   } // switch
 
+} // export async function
+
+export async function build_public(site: Record<string, any>) {
+  const promises: Promise<any>[] = [];
+  const files = await raw_www_files();
+  assert_files_in("./", files);
+
+  for (const f of files) {
+    promises.push(build_and_write_www_file(f, site));
+  }
+
+  return await Promise.all(promises);
+} // export async function
+
+export async function build_and_write_www_file(f: string, o: Record<string, any>) {
+  const ext = path.extname(f);
+  switch (ext) {
+    case ".njk": {
+      const new_file = f.replace( /\.njk$/, ".html",);
+      await Deno.writeTextFile(new_file, html(f, o));
+      print_wrote(new_file);
+      return new_file;
+    } // case
+
+    case ".less": {
+      const new_file = f.replace( /.less$/, ".css",);
+      await Deno.writeTextFile(new_file, await css(f));
+      print_wrote(new_file);
+      return new_file
+    } // case
+
+    case ".ts": {
+      const new_file = f.replace(/.ts$/, ".mjs");
+      await Deno.writeTextFile(new_file, await js(f));
+      print_wrote(new_file);
+      return new_file;
+    } // case
+
+    default: {
+      throw new Error(`Unknown file type: (${ext}) ${f}`);
+    } // default
+  } // switch
 } // export async function
