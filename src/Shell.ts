@@ -20,7 +20,8 @@ import {
   emptyDirSync,
   existsSync,
   ensureDir,
-  ensureDirSync
+  ensureDirSync,
+  copy
 } from "https://deno.land/std/fs/mod.ts";
 
 
@@ -31,7 +32,7 @@ import type {VERBOSE_LEVEL, Result} from "./Process.ts";
 // Top level constants and variables:
 // =============================================================================
 
-export let IS_VERBOSE = Deno.args.filter(x => x === "-v" || x === "--verbose").length > 0;
+export const IS_VERBOSE = Deno.args.filter(x => x === "-v" || x === "--verbose").length > 0;
 
 // =============================================================================
 // Types:
@@ -1052,35 +1053,63 @@ export async function fetch_json(u: string | Request) {
   return fetch(u).then(x => x.json());
 } // export async function
 
+export function cp_rf(src: string, dest: string) {
+  return copy(src, dest, {overwrite: true});
+} // export function
+
+export function cd(dir: string) {
+  return Deno.chdir(dir);
+} // export function
+
+export async function change_dir(dir: string, f: () => Promise<any>) {
+  const original = Deno.cwd();
+  Deno.chdir(dir);
+  const result = await f();
+  Deno.chdir(original);
+  return result;
+} // export function
+
 export function ensure_dir(s: string) {
   return ensureDirSync(s);
 } // export function
 
-export async function is_directory(raw: string) {
+export function rm_rf(file_or_dir: string) {
+  return Deno.removeSync(file_or_dir, {recursive: true});
+} // export function
+
+export function empty_dir(s: string) {
+  return emptyDirSync(s);
+} // export function
+
+export async function local_tmp(dir: string, f: () => Promise<any>) {
+  const new_path = path.join("tmp", dir);
+  ensure_dir(new_path);
+  return await change_dir(new_path, f);
+} // export async function
+
+export function is_dir(raw: string) {
   try {
-    const result = await Deno.stat(raw);
-    return result.isDirectory;
+    return Deno.lstatSync(raw).isDirectory;
   } catch (err) {
     return false;
   }
-} // func
+} // export function
 
-export async function is_file(raw: string) {
+export function is_file(raw: string) {
   try {
-    const result = await Deno.stat(raw);
-    return result.isFile;
+    return Deno.lstatSync(raw).isFile;
   } catch (err) {
     return false;
   }
-} // func
+} // export function
 
-export async function default_read_text_file(default_x: any, file_path: string) {
+export function default_read_text(default_x: any, file_path: string) {
   try {
-    return await Deno.readTextFile(file_path);
+    return Deno.readTextFileSync(file_path);
   } catch (e) {
     return default_x;
   }
-} // export async function
+} // export function
 
 /*
  * Text_File: The file does not have to exist.
