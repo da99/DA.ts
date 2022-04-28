@@ -1055,6 +1055,9 @@ export async function fetch_json(u: string | Request) {
 
 export function cp(src: string, dest: string) {
   const stat_src = Deno.lstatSync(src);
+  if (!stat_src.isFile) {
+    throw new Error(`${Deno.inspect(src)} is not a file.`);
+  }
   try {
     const stat_dest = Deno.lstatSync(dest);
     if (stat_dest.isDirectory && stat_src.isFile) {

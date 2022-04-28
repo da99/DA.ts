@@ -64,6 +64,22 @@ it("copies a file to the inside of an existing directory", () => {
   equals(actual, "hello 01");
 });
 
+it("throws an error if the source is a directory.", () => {
+  let msg = "no error thrown."
+  const actual = local_tmp("spec.dsl/cp", () => {
+    empty_dir();
+    mkdir_p("adir");
+    Deno.writeTextFileSync("adir/a.txt", "hello 01");
+    try {
+      cp("adir", "bdir");
+    } catch (e) {
+      msg = e.message
+    }
+    return msg;
+  })
+  matches(actual, /.adir. is not a file/);
+});
+
 // =============================================================================
 describe("cp_r");
 // =============================================================================
