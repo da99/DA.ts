@@ -58,7 +58,7 @@ it("copies a file to the inside of an existing directory", () => {
     empty_dir();
     mkdir_p("adir");
     Deno.writeTextFileSync("a.txt", "hello 01");
-    cp("a.txt", "adir/");
+    cp("a.txt", "adir");
     return Deno.readTextFileSync("adir/a.txt");
   })
   equals(actual, "hello 01");

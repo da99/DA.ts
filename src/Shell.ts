@@ -1055,8 +1055,13 @@ export async function fetch_json(u: string | Request) {
 
 export function cp(src: string, dest: string) {
   const stat_src = Deno.lstatSync(src);
-  if (dest.at(-1) === "/" && stat_src.isFile) {
-    dest = path.join(dest, path.basename(src))
+  try {
+    const stat_dest = Deno.lstatSync(dest);
+    if (stat_dest.isDirectory && stat_src.isFile) {
+      dest = path.join(dest, path.basename(src))
+    }
+  } catch (e) {
+    // ignored
   }
   return Deno.copyFileSync(src, dest);
 } // export function
