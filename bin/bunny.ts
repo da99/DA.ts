@@ -5,7 +5,7 @@ import {meta_url, match, not_found, inspect, IS_VERBOSE} from "../src/Shell.ts";
 import {run} from "../src/Process.ts";
 import { green, red, yellow, bold } from "https://deno.land/std/fmt/colors.ts";
 import {content_type, human_bytes, MB, sort_by_key, count} from "../src/Function.ts";
-import {fd, table, shell, shell_ignore_errors} from "../src/Shell.ts";
+import {fd, table, shell_lines, shell_string} from "../src/Shell.ts";
 import { readableStreamFromReader } from "https://deno.land/std/streams/conversion.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 import {
@@ -20,7 +20,7 @@ meta_url(import.meta.url);
 
 export type CONFIG_OPTIONS    = "PROJECT_NAME" | "BUNNY_DIR" | "BUNNY_URL" | "BUNNY_KEY" | "VERBOSE";
 export const FILE_TS          = ".FILES.ts";
-export const GIT_PROJECT_NAME = (await shell_ignore_errors("git", "remote get-url origin"))
+export const GIT_PROJECT_NAME = (await shell_lines("git", "remote get-url origin", false))
   .default_non_empty_string(null, (x: string) => x.replace(/\.git$/, '').split('/').pop());
 
 export interface Bunny_Response {
@@ -183,8 +183,8 @@ not_found();
 // =============================================================================
 
 export async function project_name() {
-  const name = (await shell("git", "remote get-url origin"))
-  .raw_string.replace(/\.git$/, '').split('/').pop();
+  const name = (await shell_string("git", "remote get-url origin"))
+  .replace(/\.git$/, '').split('/').pop();
   if (typeof name === "string" && name.length > 0)
     return name;
   throw new Error(`No project name could be found.`);
