@@ -1061,14 +1061,6 @@ export function cd(dir: string) {
   return Deno.chdir(dir);
 } // export function
 
-export async function change_dir(dir: string, f: () => Promise<any>) {
-  const original = Deno.cwd();
-  Deno.chdir(dir);
-  const result = await f();
-  Deno.chdir(original);
-  return result;
-} // export function
-
 export function ensure_dir(s: string) {
   return ensureDirSync(s);
 } // export function
@@ -1081,11 +1073,47 @@ export function empty_dir(s: string) {
   return emptyDirSync(s);
 } // export function
 
-export async function local_tmp(dir: string, f: () => Promise<any>) {
+export function chdir(dir: string, f?: () => any) {
+  const original = Deno.cwd();
+  Deno.chdir(dir);
+  if (f) {
+    const result = f();
+    Deno.chdir(original);
+    return result;
+  }
+} // export function
+
+export async function a_chdir<T>(dir: string, f: () => Promise<T>): Promise<T> {
+  const original = Deno.cwd();
+  Deno.chdir(dir);
+  const result = await f();
+  Deno.chdir(original);
+  return result;
+} // export async function
+
+export async function a_tmp(dir: string, f: () => Promise<any>) {
+  const new_path = path.join("/tmp", dir);
+  ensure_dir(new_path);
+  return await a_chdir(new_path, f);
+} // export async function
+
+export function tmp(dir: string, f: () => any) {
+  const new_path = path.join("/tmp", dir);
+  ensure_dir(new_path);
+  return chdir(new_path, f);
+} // export function
+
+export async function a_local_tmp(dir: string, f: () => Promise<any>) {
   const new_path = path.join("tmp", dir);
   ensure_dir(new_path);
-  return await change_dir(new_path, f);
+  return await a_chdir(new_path, f);
 } // export async function
+
+export function local_tmp(dir: string, f: () => any) {
+  const new_path = path.join("tmp", dir);
+  ensure_dir(new_path);
+  return chdir(new_path, f);
+} // export function
 
 export function is_dir(raw: string) {
   try {
