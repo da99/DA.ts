@@ -21,7 +21,7 @@ import {
   existsSync,
   ensureDir,
   ensureDirSync,
-  copy
+  copySync
 } from "https://deno.land/std/fs/mod.ts";
 
 
@@ -1053,12 +1053,40 @@ export async function fetch_json(u: string | Request) {
   return fetch(u).then(x => x.json());
 } // export async function
 
+export function cp(src: string, dest: string) {
+  const stat_src = Deno.lstatSync(src);
+  if (dest.at(-1) === "/" && stat_src.isFile) {
+    dest = path.join(dest, path.basename(src))
+  }
+  return Deno.copyFileSync(src, dest);
+} // export function
+
+export function cp_r(src: string, dest: string) {
+  const s_info = Deno.lstatSync(src);
+  if (!s_info.isDirectory) {
+    throw new Error(`${Deno.inspect(src)} is not a directory.`);
+  }
+  try {
+    const d = Deno.lstatSync(dest);
+    if (d.isDirectory) {
+      dest = path.join(dest, path.basename(src))
+    }
+  } catch (e) {
+    // ignore
+  }
+  return copySync(src, dest);
+} // export function
+
 export function cp_rf(src: string, dest: string) {
-  return copy(src, dest, {overwrite: true});
+  return copySync(src, dest, {overwrite: true});
 } // export function
 
 export function cd(dir: string) {
   return Deno.chdir(dir);
+} // export function
+
+export function mkdir_p(s: string) {
+  return ensureDirSync(s);
 } // export function
 
 export function ensure_dir(s: string) {
@@ -1069,7 +1097,9 @@ export function rm_rf(file_or_dir: string) {
   return Deno.removeSync(file_or_dir, {recursive: true});
 } // export function
 
-export function empty_dir(s: string) {
+export function empty_dir(s?: string) {
+  if (!s)
+    s = Deno.cwd();
   return emptyDirSync(s);
 } // export function
 

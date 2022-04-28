@@ -22,6 +22,7 @@ export { matches };
 // # =============================================================================
 const CHECK_MARK = "✓";
 const X_MARK = "✗";
+const THIS_CWD = Deno.cwd();
 
 // # =============================================================================
 function is_async_function(x: any) {
@@ -157,7 +158,9 @@ export async function finish(match? : string) {
   for (const f of files) {
     prompt(`\n${BOLD(YELLOW("FILE:"))} ${bgBlue(f.file)}\n`);
 
-    const descs = (match) ? f.descs.filter(d => d.matches(match)) : f.descs;
+    let descs = (match) ? f.descs.filter(d => d.matches(match)) : f.descs;
+    if (descs.length === 0)
+      descs = f.descs;
 
     for (const d of descs) {
       prompt(`${BOLD(BLUE(d.title))}\n`);
@@ -178,6 +181,7 @@ export async function finish(match? : string) {
         at_least_one_it_ran = true;
         try {
           await i.func();
+          Deno.chdir(THIS_CWD);
           prompt(GREEN(`${CHECK_MARK}\n`));
           EQUALS(res, Deno.resources());
           if (LAST_FAIL_VERSION === version) {
@@ -185,6 +189,7 @@ export async function finish(match? : string) {
             break;
           }
         } catch(e) {
+          Deno.chdir(THIS_CWD);
           prompt(BOLD(RED(`${X_MARK}\n`)));
           if (LAST_FAIL_VERSION !== version) {
             Deno.writeTextFileSync(LAST_FAIL_FILE, version);
