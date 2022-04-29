@@ -1,8 +1,8 @@
 
 // import * as path from "https://deno.land/std/path/mod.ts";
 // import type {Result} from "./Process.ts";
-
-import { flatten_cmd, split_whitespace } from "./String.ts";
+// import { flatten_cmd, split_whitespace } from "./String.ts";
+//
 import {run, throw_on_fail, split_cmd} from "./Process.ts";
 import {rearrange} from "./Array.ts";
 import {
@@ -15,10 +15,9 @@ import {
 
 import * as path from "https://deno.land/std/path/mod.ts";
 import { bold, green, yellow, blue } from "https://deno.land/std/fmt/colors.ts";
-import { readerFromStreamReader } from "https://deno.land/std/streams/conversion.ts"
+import { readerFromStreamReader, copy } from "https://deno.land/std/streams/conversion.ts"
 import {
   emptyDirSync,
-  existsSync,
   ensureDir,
   ensureDirSync,
   copySync
@@ -710,16 +709,6 @@ export function raw_inspect(x: any) {
   );
 } // export
 
-type Action = (...args: string[]) => void;
-type Pattern_Element = string | 0 | string[];
-type Pattern = Array<Pattern_Element>;
-
-interface Command {
-  raw_cmd: string;
-  pattern: Array<Pattern_Element>;
-  action: Action;
-} // interface
-
 function is_pattern(x: string) {
   const first_char = x.charAt(0);
   return first_char === '[' || first_char === '<';
@@ -744,7 +733,6 @@ export function get_vars(raw_cmd: string, user_input: string[]) : false | Array<
   const inputs   = gen(user_input);
 
   let vars: Array<string | string[]> = [];
-  let used_inputs: string[]          = [];
   let i_done = false;
 
 
@@ -813,7 +801,6 @@ let _user_input: string[] = [];
 let _vars: Array<string | string[]> = [];
 let is_found = false;
 let is_help = false;
-let filename = path.basename(import.meta.url);
 let _import_meta_url = "file:///unknown_project/bin/unknown";
 
 args(Deno.args);
@@ -1273,21 +1260,23 @@ export function find_parent_file(file_name: string, dir: string) {
 } // export
 
 
-export async function download(url: string, file: string) {
+export async function download(url: string, file?: string) {
+  if (!file)
+    file = path.basename(url);
   const resp = await fetch(url);
   const rdr = resp.body?.getReader();
   if (!rdr) {
     throw new Error(`Unable to get a response from ${url}`);
   } // if
   try {
-    const stat = await Deno.stat(file);
+    await Deno.stat(file);
     throw new Error(`Already exists: ${file}`);
   } catch (e) {
       const r = readerFromStreamReader(rdr);
       let f = null;
       try {
         f = await Deno.open(file, {create: true, write: true});
-        await Deno.copy(r, f);
+        await copy(r, f);
       } catch (e) {
         if (f)
           f.close();
