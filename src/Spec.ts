@@ -5,6 +5,7 @@ import { assertMatch as matches, assertEquals as EQUALS } from "https://deno.lan
 import { deepEqual } from "https://deno.land/x/cotton/src/utils/deepequal.ts";
 import { bold as BOLD, blue as BLUE, green as GREEN, red as RED, bgBlue, yellow as YELLOW, white  } from "https://deno.land/std/fmt/colors.ts";
 import { emptyDirSync, ensureDirSync } from "https://deno.land/std/fs/mod.ts";
+import { writeAllSync } from "https://deno.land/std/streams/conversion.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 
 // # =============================================================================
@@ -62,7 +63,7 @@ export function filename(f: string) {
 } // function
 
 function prompt(raw_text: string) {
-  return Deno.writeAllSync(
+  return writeAllSync(
     Deno.stderr,
     new TextEncoder().encode(raw_text)
   );
@@ -72,21 +73,31 @@ let module_caller: undefined | string = import.meta.url;
 let unknown_caller = 0;
 
 class File {
-  descs: Describe[];
-  file: string;
+  describes: Describe[];
+  file:      string;
   constructor(file: string) {
-    this.descs = [];
+    this.describes = [];
     this.file  = file
   } // constructor
 
   desc(t: string) {
     const d = new Describe(t);
-    this.descs.push(d);
+    this.describes.push(d);
     return d;
   } // method
 
+  is_title_match(s: string): boolean {
+    return !!this.file.toLowerCase().match(s.toLowerCase());
+  } // method
+
+  describe_matches(s: string): Describe[] {
+    if (this.is_title_match(s))
+      return this.describes;
+    return this.describes.filter(d => d.some_match(s));
+  } // method
+
   matches(s: string): boolean {
-    return !!this.file.toLowerCase().match(s.toLowerCase()) || this.descs.some(d => d.matches(s));
+    return this.is_title_match(s) || this.describes.some(d => d.some_match(s));
   } // method
 } // class
 
@@ -107,9 +118,19 @@ class Describe {
     return i;
   } // method
 
-  matches(s: string): boolean {
-    return !!this.title.toLowerCase().match(s.toLowerCase()) || this.its.some(i => i.matches(s));
-  } // matches
+  some_match(s: string): boolean {
+    return this.is_title_match(s) || this.its.some(i => i.is_title_match(s));
+  } // method
+
+  is_title_match(s: string): boolean {
+    return !!this.title.toLowerCase().match(s.toLowerCase());
+  } // method
+
+  it_matches(s: string): It[] {
+    if (this.is_title_match(s))
+      return this.its;
+    return this.its.filter(i => i.is_title_match(s));
+  } // method
 } // class
 
 class It {
@@ -123,13 +144,16 @@ class It {
     this.test_dir = test_dir;
   } // constructor
 
-  matches(s: string): boolean {
+  is_title_match(s: string): boolean {
     return !!this.title.toLowerCase().match(s.toLowerCase());
   } // matches
 } // class
 
-export function ch_test_dir(destination: string = "tmp/test_run") {
-  TEST_DIR = destination;
+/*
+  * Prepends "tmp/" to the destination.
+*/
+export function ch_test_dir(destination: string = "test_run") {
+  TEST_DIR = path.join("tmp", destination);
   return TEST_DIR;
 } // export function
 
@@ -150,7 +174,7 @@ export function it(title: string, raw_f: Void_Function | Async_Function) {
     (raw_f as Async_Function) :
     (function () { return Promise.resolve(raw_f()); });
 
-  FILE_STACK.at(-1)!.descs.at(-1)!.it(title, f, TEST_DIR);
+  FILE_STACK.at(-1)!.describes.at(-1)!.it(title, f, TEST_DIR);
   PRINT_STACK.push({
     "it": title,
     "async_f": f
@@ -159,8 +183,6 @@ export function it(title: string, raw_f: Void_Function | Async_Function) {
 
 export async function finish(match? : string) {
   ensureDirSync(path.dirname(LAST_FAIL_FILE));
-  let last_filename       = null;
-  let last_desc           = null;
   let at_least_one_it_ran = false;
   const LAST_FAIL_VERSION = get_content(LAST_FAIL_FILE);
 
@@ -168,21 +190,13 @@ export async function finish(match? : string) {
   for (const f of files) {
     prompt(`\n${BOLD(YELLOW("FILE:"))} ${bgBlue(f.file)}\n`);
 
-    let descs = (match) ? f.descs.filter(d => d.matches(match)) : f.descs;
-    if (descs.length === 0)
-      descs = f.descs;
+    let descs = (match) ? f.describe_matches(match) : f.describes;
 
     for (const d of descs) {
       prompt(`${BOLD(BLUE(d.title))}\n`);
 
-      let its = d.its;
-      if (match) {
-        if (!d.title.match(match))
-          its = d.its.filter(i => i.matches(match));
-      }
+      let its = (match) ? d.it_matches(match) : d.its;
 
-      if (its.length === 0)
-        its = d.its;
       for (const i of its) {
         const res = Deno.resources();
         const version = `${f.file} ${d.title} ${i.title}`;
