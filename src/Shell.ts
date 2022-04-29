@@ -1,5 +1,4 @@
 
-// import * as path from "https://deno.land/std/path/mod.ts";
 // import type {Result} from "./Process.ts";
 // import { flatten_cmd, split_whitespace } from "./String.ts";
 //
@@ -1076,17 +1075,45 @@ export function copy_dir(src: string, dest: string) {
   return copySync(src, dest);
 } // export function
 
+/*
+  * Copy files in a directory into another.
+  * Uses copy_dir(a,b) if destination does not exist.
+*/
+export function copy_contents(src: string, dest: string) {
+  try {
+    Deno.lstatSync(dest);
+  } catch (e) {
+    return copy_dir(src, dest);
+  }
+
+  const s_info = Deno.lstatSync(src);
+  if (!s_info.isDirectory) {
+    throw new Error(`${Deno.inspect(src)} is not a directory.`);
+  }
+
+  Deno.lstatSync(dest);
+  const contents = cd(src, () => files(Infinity));
+  for (const f of contents) {
+    const f_dir = path.dirname(f);
+    if (f_dir !== ".") {
+      const new_f_dir = path.join(dest, f_dir);
+      mk_dir(new_f_dir)
+      copy_file(path.join(src, f), new_f_dir);
+    } else {
+      copy_file(path.join(src,f), dest);
+    }
+  } // for
+
+  return true;
+} // export function
+
 export function cp_rf(src: string, dest: string) {
   return copySync(src, dest, {overwrite: true});
 } // export function
 
-export function cd(dir: string) {
-  return Deno.chdir(dir);
-} // export function
-
-export function files(maxDepth: number = 1) {
+export function files(maxDepth: number = 1): string[] {
   const i = walkSync(".", {maxDepth, includeDirs: false, followSymlinks: false});
-  return [...i];
+  return [...i].map(x => x.path);
 } // export function
 
 export function mk_file(file_path: string) {
@@ -1116,17 +1143,18 @@ export function empty_dir(s?: string) {
   return emptyDirSync(s);
 } // export function
 
-export function chdir(dir: string, f?: () => any) {
+export function cd(dir: string, f?: () => any) {
+  if (!f)
+    return Deno.chdir(dir);
+
   const original = Deno.cwd();
   Deno.chdir(dir);
-  if (f) {
-    const result = f();
-    Deno.chdir(original);
-    return result;
-  }
+  const result = f();
+  Deno.chdir(original);
+  return result;
 } // export function
 
-export async function a_chdir<T>(dir: string, f: () => Promise<T>): Promise<T> {
+export async function a_cd<T>(dir: string, f: () => Promise<T>): Promise<T> {
   const original = Deno.cwd();
   Deno.chdir(dir);
   const result = await f();
@@ -1134,29 +1162,29 @@ export async function a_chdir<T>(dir: string, f: () => Promise<T>): Promise<T> {
   return result;
 } // export async function
 
-export async function a_tmp(dir: string, f: () => Promise<any>) {
-  const new_path = path.join("/tmp", dir);
-  mk_dir(new_path);
-  return await a_chdir(new_path, f);
-} // export async function
-
 export function tmp(dir: string, f: () => any) {
   const new_path = path.join("/tmp", dir);
   mk_dir(new_path);
-  return chdir(new_path, f);
+  return cd(new_path, f);
 } // export function
 
-export async function a_local_tmp(dir: string, f: () => Promise<any>) {
-  const new_path = path.join("tmp", dir);
+export async function a_tmp<T>(dir: string, f: () => Promise<T>): Promise<T> {
+  const new_path = path.join("/tmp", dir);
   mk_dir(new_path);
-  return await a_chdir(new_path, f);
+  return await a_cd(new_path, f);
 } // export async function
 
 export function local_tmp(dir: string, f: () => any) {
   const new_path = path.join("tmp", dir);
   mk_dir(new_path);
-  return chdir(new_path, f);
+  return cd(new_path, f);
 } // export function
+
+export async function a_local_tmp<T>(dir: string, f: () => Promise<T>): Promise<T> {
+  const new_path = path.join("tmp", dir);
+  mk_dir(new_path);
+  return await a_cd(new_path, f);
+} // export async function
 
 export function is_dir(raw: string) {
   try {
@@ -1278,11 +1306,14 @@ export function find_parent_file(file_name: string, dir: string) {
 export async function download(url: string, file?: string) {
   if (!file)
     file = path.basename(url);
+
   const resp = await fetch(url);
   const rdr = resp.body?.getReader();
+
   if (!rdr) {
     throw new Error(`Unable to get a response from ${url}`);
   } // if
+
   try {
     await Deno.stat(file);
     throw new Error(`Already exists: ${file}`);
@@ -1299,7 +1330,24 @@ export async function download(url: string, file?: string) {
       }
       if (f)
         f.close();
-  }
+  } // try/catch
+
   return true;
 } // export async function
 
+
+class Directory {
+  path: string;
+
+  constructor(d_path: string) {
+    this.path = d_path;
+  }
+
+  files(maxDepth: number = 5) {
+    return cd(this.path, () => files(maxDepth));
+  } // methd
+} // class
+
+export function directory(d_path: string) {
+  return new Directory(d_path);
+} // export function

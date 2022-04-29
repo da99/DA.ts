@@ -27,9 +27,6 @@ const THIS_CWD   = Deno.cwd();
 let TEST_DIR     = THIS_CWD;
 
 // # =============================================================================
-function is_async_function(x: any) {
-  return typeof(x) === "object" && x.constructor.name === "AsyncFunction";
-} // function
 
 // # =============================================================================
 const LAST_FAIL_FILE = "tmp/spec/last.fail";
@@ -129,7 +126,10 @@ class Describe {
   it_matches(s: string): It[] {
     if (this.is_title_match(s))
       return this.its;
-    return this.its.filter(i => i.is_title_match(s));
+    const its = this.its.filter(i => i.is_title_match(s));
+    if (its.length === 0)
+      return this.its;
+    return its;
   } // method
 } // class
 

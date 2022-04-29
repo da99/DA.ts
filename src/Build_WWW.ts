@@ -7,7 +7,8 @@
 import {emptyDir, existsSync, ensureDirSync, ensureDir} from "https://deno.land/std/fs/mod.ts";
 import nunjucks from "https://deno.land/x/nunjucks/mod.js";
 import {throw_on_fail, run} from "./Process.ts";
-import {download} from "./Shell.ts";
+import {split_whitespace} from "./String.ts";
+import {download, files} from "./Shell.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 import { bold, yellow } from "https://deno.land/std/fmt/colors.ts";
 
@@ -52,12 +53,11 @@ export async function build_worker(WORKER_TS: string, WORKER_JS: string) {
   print_wrote(new_file);
 } // export async function
 
-export async function raw_www_files(dir = "./") {
-  const { stdout } = await _run( `find ${dir} -type f -iname *.less -o -iname *.ts -o -iname *.njk`,);
-  return stdout.trim().split('\n').filter(
-    (x) => x.trim() !== "" && path.basename(x).charAt(0) !== "_"
-  );
-} // export async function
+export function raw_www_files(): string[] {
+  const exts = split_whitespace(".ts .less .njk");
+  return files(8).filter(f => exts.includes(path.extname(f.path)) && path.basename(f.path).charAt(0) !== "_")
+  .map(x => x.path);
+} // export function
 
 function assert_files_in(dir: string, files: string[]) {
   if (files.length === 0) {
@@ -160,7 +160,7 @@ export async function build_app(group: "app"|"public"|"worker"|"update", RAW_CON
 
 export async function build_public(site: Record<string, any>) {
   const promises: Promise<any>[] = [];
-  const files = await raw_www_files();
+  const files = raw_www_files();
   assert_files_in("./", files);
 
   for (const f of files) {

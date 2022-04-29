@@ -6,11 +6,12 @@ import {
   shell_string,
   empty_dir,
   mk_dir,
-  copy_file, copy_dir,
+  copy_file, copy_dir, copy_contents,
   fetch_text, fetch_json,
   rename,
   mk_file,
-  files
+  files, cd,
+  directory
 } from "../src/Shell.ts";
 
 // =============================================================================
@@ -132,7 +133,7 @@ it("throws an error if the source is a directory.", () => {
 describe("copy_dir");
 // =============================================================================
 
-it("copies a directory to the inside of an existing directory", () => {
+it("copies a directory to the inside of an existing directory: copy_dir(a, b) -> b/a", () => {
   mk_dir("a");
   mk_dir("b");
   Deno.writeTextFileSync("a/a.txt", "hello cp_r");
@@ -141,13 +142,14 @@ it("copies a directory to the inside of an existing directory", () => {
   equals(Deno.readTextFileSync("b/a/a.txt"), "hello cp_r");
 });
 
-it("copies a directory to the specified non-existing directory", () => {
+it("copies a directory to the specified non-existing directory: copy_dir(a,b) -> b", () => {
   mk_dir("a");
   Deno.writeTextFileSync("a/a.txt", "hello new_A");
   copy_dir("a", "new_a");
 
   equals(Deno.readTextFileSync("new_a/a.txt"), "hello new_A");
 });
+
 
 it("throws an error if src is a file", () => {
   mk_dir("a");
@@ -172,19 +174,44 @@ it("throws an error if dest is a file", () => {
 });
 
 // =============================================================================
+describe("copy_contents");
+// =============================================================================
+
+it("copies files into a non-existing directory: copy_dir(a,b) -> b/...", () => {
+  mk_dir("a");
+  Deno.writeTextFileSync("a/a.txt", "hello new_A");
+  Deno.writeTextFileSync("a/b.txt", "hello new_B");
+  copy_contents("a", "b");
+
+  const f = directory('b').files();
+  equals(f, ["a.txt", "b.txt"]);
+});
+
+it("copies files into an existing directory: copy_dir(a,b) -> b/...", () => {
+  mk_dir("a");
+  Deno.writeTextFileSync("a/a.txt", "hello new_A");
+  Deno.writeTextFileSync("a/b.txt", "hello new_B");
+  mk_dir("b");
+  copy_contents("a", "b");
+
+  const f = directory("b").files(Infinity);
+  equals(f, ["a.txt", "b.txt"]);
+});
+
+// =============================================================================
 describe('mk_file');
 // =============================================================================
 
 it("creates a file if it doesn't exist.", () => {
   mk_file("hello1.txt");
-  const actual = files().map(x => x.path);
+  const actual = files();
 
   equals(actual, ["hello1.txt"]);
 });
 
 it("creates the directory structure if it doesn't exist.", () => {
   mk_file("a/b/c/hello1.txt");
-  const actual = files(Infinity).map(x => x.path);
+  const actual = files(Infinity);
 
   equals(actual, ["a/b/c/hello1.txt"]);
 });
@@ -197,7 +224,7 @@ describe('files');
 it("lists files with maxDepth 1 by default: files()", () => {
   mk_file("hello1.txt");
   mk_file("a/b/c/hello2.txt");
-  const actual = files().map(x => x.path);
+  const actual = files();
 
   equals(actual, ["hello1.txt"]);
 });
@@ -206,7 +233,7 @@ it("lists files with the specified maxDepth: files(3)", () => {
   mk_file("a/b/hello1.txt");
   mk_file("a/b/hello2.txt");
   mk_file("a/b/c/d/e/fhello2.txt");
-  const actual = files(3).map(x => x.path);
+  const actual = files(3);
 
   equals(actual, ["a/b/hello1.txt", "a/b/hello2.txt"]);
 });
@@ -215,7 +242,7 @@ it("does not list directories.", () => {
   mk_file("hello1.txt");
   mk_file("hello2.txt");
   mk_dir("a/b/c");
-  const actual = files().map(x => x.path);
+  const actual = files();
 
   equals(actual, ["hello1.txt", "hello2.txt"]);
 });

@@ -33,6 +33,10 @@ export function sum(arr: number[]) {
   return arr.reduce((p,c) => p + c, 0);
 } // export function
 
+export function is_async_function(x: any) {
+  return typeof(x) === "object" && x.constructor.name === "AsyncFunction";
+} // export function
+
 export function is_length_0(x: {length: number}) : boolean {
   return(x.length === 0);
 } // export function
