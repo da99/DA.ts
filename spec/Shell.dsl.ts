@@ -1,15 +1,15 @@
 
-import { describe, it, equals, matches } from "../src/Spec.ts";
+import { ch_test_dir, describe, it, equals, matches } from "../src/Spec.ts";
 import {
   local_tmp, a_local_tmp,
   tmp, a_tmp,
   shell_string,
   empty_dir,
-  mkdir_p,
+  mk_dir,
   copy_file, copy_dir,
   fetch_text, fetch_json,
   rename,
-  ensure_file,
+  mk_file,
   files
 } from "../src/Shell.ts";
 
@@ -72,44 +72,37 @@ it("returns the value of the function", async () => {
 });
 
 // =============================================================================
+ch_test_dir(); // =============================================================
+// =============================================================================
+
+// =============================================================================
 describe("rename");
 // =============================================================================
 
 it("can rename a file", () => {
-  const actual = local_tmp("spec.dsl/rename", () => {
-    empty_dir();
-    Deno.writeTextFileSync("a.txt", "hello rename");
-    rename("a.txt", "b.txt");
-    return Deno.readTextFileSync("b.txt");
-  })
-  equals(actual, "hello rename");
+  Deno.writeTextFileSync("a.txt", "hello rename");
+  rename("a.txt", "b.txt");
+
+  equals(Deno.readTextFileSync("b.txt"), "hello rename");
 });
 
 it("can rename a directory", () => {
-  const actual = local_tmp("spec.dsl/rename", () => {
-    empty_dir();
-    mkdir_p("olddir")
-    Deno.writeTextFileSync("olddir/a.txt", "hello old dir");
-    rename("olddir", "newdir");
-    return Deno.readTextFileSync("newdir/a.txt");
-  })
-  equals(actual, "hello old dir");
+  mk_dir("olddir")
+  Deno.writeTextFileSync("olddir/a.txt", "hello old dir");
+  rename("olddir", "newdir");
+
+  equals(Deno.readTextFileSync("newdir/a.txt"), "hello old dir");
 });
 
 it("throws an error if destination already exists", () => {
   let msg = "no error thrown";
-  const actual = local_tmp("spec.dsl/rename", () => {
-    empty_dir();
-    mkdir_p("olddir")
-    mkdir_p("newdir")
-    try {
-      rename("olddir", "newdir");
-    } catch (e) {
-      msg = e.message;
-    }
-    return msg;
-  });
-  matches(actual, /.newdir.+already exists/);
+  mk_dir("olddir")
+  mk_dir("newdir")
+  try {
+    rename("olddir", "newdir");
+  } catch (e) { msg = e.message; }
+
+  matches(msg, /.newdir.+already exists/);
 });
 
 // =============================================================================
@@ -117,28 +110,21 @@ describe("copy_file");
 // =============================================================================
 
 it("copies a file to the inside of an existing directory", () => {
-  const actual = local_tmp("spec.dsl/cp", () => {
-    empty_dir();
-    mkdir_p("adir");
-    Deno.writeTextFileSync("a.txt", "hello 01");
-    copy_file("a.txt", "adir");
-    return Deno.readTextFileSync("adir/a.txt");
-  })
-  equals(actual, "hello 01");
+  mk_dir("adir");
+  Deno.writeTextFileSync("a.txt", "hello 01");
+  copy_file("a.txt", "adir");
+
+  equals(Deno.readTextFileSync("adir/a.txt"), "hello 01");
 });
 
 it("throws an error if the source is a directory.", () => {
-  const actual = local_tmp("spec.dsl/cp", () => {
-    empty_dir();
-    mkdir_p("adir");
-    Deno.writeTextFileSync("adir/a.txt", "hello 01");
-    try {
-      copy_file("adir", "bdir");
-    } catch (e) {
-      return e.message;
-    }
-    return "no error thrown.";
-  })
+  let actual = "no error thrown.";
+  mk_dir("adir");
+  Deno.writeTextFileSync("adir/a.txt", "hello 01");
+  try {
+    copy_file("adir", "bdir");
+  } catch (e) { actual = e.message; }
+
   matches(actual, /.adir. is not a file/);
 });
 
@@ -147,69 +133,89 @@ describe("copy_dir");
 // =============================================================================
 
 it("copies a directory to the inside of an existing directory", () => {
-  const actual = local_tmp("spec.dsl/cp_r", () => {
-    empty_dir();
-    mkdir_p("a");
-    mkdir_p("b");
-    Deno.writeTextFileSync("a/a.txt", "hello cp_r");
-    copy_dir("a", "b");
-    return Deno.readTextFileSync("b/a/a.txt");
-  })
-  equals(actual, "hello cp_r");
+  mk_dir("a");
+  mk_dir("b");
+  Deno.writeTextFileSync("a/a.txt", "hello cp_r");
+  copy_dir("a", "b");
+
+  equals(Deno.readTextFileSync("b/a/a.txt"), "hello cp_r");
 });
 
 it("copies a directory to the specified non-existing directory", () => {
-  const actual = local_tmp("spec.dsl/cp_r", () => {
-    empty_dir();
-    mkdir_p("a");
-    Deno.writeTextFileSync("a/a.txt", "hello new_A");
-    copy_dir("a", "new_a");
-    return Deno.readTextFileSync("new_a/a.txt");
-  })
-  equals(actual, "hello new_A");
+  mk_dir("a");
+  Deno.writeTextFileSync("a/a.txt", "hello new_A");
+  copy_dir("a", "new_a");
+
+  equals(Deno.readTextFileSync("new_a/a.txt"), "hello new_A");
 });
 
 it("throws an error if src is a file", () => {
-  const actual = local_tmp("spec.dsl/cp_r", () => {
-    empty_dir();
-    mkdir_p("a");
-    Deno.writeTextFileSync("a/a.txt", "hello new_A");
-    try {
-      copy_dir("a/a.txt", "new_a");
-    } catch (e) {
-      return e.message;
-    }
-    return "no error thrown.";
-  })
-  matches(actual, /.a\/a.txt. is not a directory/);
+  mk_dir("a");
+  Deno.writeTextFileSync("a/a.txt", "hello new_A");
+  try {
+    copy_dir("a/a.txt", "new_a");
+  } catch (e) { return e.message; }
+
+  matches("no error thrown.", /.a\/a.txt. is not a directory/);
 });
 
 it("throws an error if dest is a file", () => {
-  const actual = local_tmp("spec.dsl/cp_r", () => {
-    empty_dir();
-    mkdir_p("a");
-    Deno.writeTextFileSync("a/a.txt", "hello new_A");
-    Deno.writeTextFileSync("b.txt", "hello b.txt");
-    try {
-      copy_dir("a", "b.txt");
-    } catch (e) {
-      return e.message;
-    }
-    return "no error thrown.";
-  })
+  let actual = "no error thrown.";
+  mk_dir("a");
+  Deno.writeTextFileSync("a/a.txt", "hello new_A");
+  Deno.writeTextFileSync("b.txt", "hello b.txt");
+  try {
+    copy_dir("a", "b.txt");
+  } catch (e) { actual = e.message; }
+
   matches(actual, /Cannot overwrite non-directory/);
+});
+
+// =============================================================================
+describe('mk_file');
+// =============================================================================
+
+it("creates a file if it doesn't exist.", () => {
+  mk_file("hello1.txt");
+  const actual = files().map(x => x.path);
+
+  equals(actual, ["hello1.txt"]);
+});
+
+it("creates the directory structure if it doesn't exist.", () => {
+  mk_file("a/b/c/hello1.txt");
+  const actual = files(Infinity).map(x => x.path);
+
+  equals(actual, ["a/b/c/hello1.txt"]);
 });
 
 
 // =============================================================================
-describe('ensure_file');
+describe('files');
 // =============================================================================
 
-it("creates a file if it doesn't exist.", () => {
-  const actual = local_tmp("spec.dsl/ensure_file", () => {
-    empty_dir();
-    ensure_file("hello1.txt");
-    return files().map(x => x.path);
-  })
+it("lists files with maxDepth 1 by default: files()", () => {
+  mk_file("hello1.txt");
+  mk_file("a/b/c/hello2.txt");
+  const actual = files().map(x => x.path);
+
   equals(actual, ["hello1.txt"]);
-})
+});
+
+it("lists files with the specified maxDepth: files(3)", () => {
+  mk_file("a/b/hello1.txt");
+  mk_file("a/b/hello2.txt");
+  mk_file("a/b/c/d/e/fhello2.txt");
+  const actual = files(3).map(x => x.path);
+
+  equals(actual, ["a/b/hello1.txt", "a/b/hello2.txt"]);
+});
+
+it("does not list directories.", () => {
+  mk_file("hello1.txt");
+  mk_file("hello2.txt");
+  mk_dir("a/b/c");
+  const actual = files().map(x => x.path);
+
+  equals(actual, ["hello1.txt", "hello2.txt"]);
+});

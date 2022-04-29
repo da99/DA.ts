@@ -1084,11 +1084,25 @@ export function cd(dir: string) {
   return Deno.chdir(dir);
 } // export function
 
-export function mkdir_p(s: string) {
-  return ensureDirSync(s);
+export function files(maxDepth: number = 1) {
+  const i = walkSync(".", {maxDepth, includeDirs: false, followSymlinks: false});
+  return [...i];
 } // export function
 
-export function ensure_dir(s: string) {
+export function mk_file(file_path: string) {
+  try {
+    Deno.lstatSync(file_path);
+    return true;
+  } catch (e) {
+    const dir = path.dirname(file_path);
+    if (dir !== ".")
+      mk_dir(dir);
+    Deno.writeTextFileSync(file_path, "");
+  }
+  return false;
+} // export function
+
+export function mk_dir(s: string) {
   return ensureDirSync(s);
 } // export function
 
@@ -1122,25 +1136,25 @@ export async function a_chdir<T>(dir: string, f: () => Promise<T>): Promise<T> {
 
 export async function a_tmp(dir: string, f: () => Promise<any>) {
   const new_path = path.join("/tmp", dir);
-  ensure_dir(new_path);
+  mk_dir(new_path);
   return await a_chdir(new_path, f);
 } // export async function
 
 export function tmp(dir: string, f: () => any) {
   const new_path = path.join("/tmp", dir);
-  ensure_dir(new_path);
+  mk_dir(new_path);
   return chdir(new_path, f);
 } // export function
 
 export async function a_local_tmp(dir: string, f: () => Promise<any>) {
   const new_path = path.join("tmp", dir);
-  ensure_dir(new_path);
+  mk_dir(new_path);
   return await a_chdir(new_path, f);
 } // export async function
 
 export function local_tmp(dir: string, f: () => any) {
   const new_path = path.join("tmp", dir);
-  ensure_dir(new_path);
+  mk_dir(new_path);
   return chdir(new_path, f);
 } // export function
 
@@ -1288,19 +1302,4 @@ export async function download(url: string, file?: string) {
   }
   return true;
 } // export async function
-
-export function ensure_file(file_path: string) {
-  try {
-    Deno.lstatSync(file_path);
-    return true;
-  } catch (e) {
-    Deno.writeTextFileSync(file_path, "");
-  }
-  return false;
-} // export function
-
-export function files(maxDepth: number = 1) {
-  const i = walkSync(".", {maxDepth, includeDirs: false, followSymlinks: false});
-  return [...i];
-} // export function
 

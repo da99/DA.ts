@@ -2,13 +2,13 @@
 import {finish} from "../src/Spec.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 import {exists, ensureDir} from "https://deno.land/std/fs/mod.ts";
-import {ensure_dir} from "../src/Shell.ts";
+import {mk_dir} from "../src/Shell.ts";
 
 const this_file      = (new URL(import.meta.url)).pathname;
 const this_file_name = (path.relative(path.dirname(this_file), this_file));
 const dir            = path.basename(path.dirname(this_file));
 
-ensure_dir("tmp/spec");
+mk_dir("tmp/spec");
 
 const cmd = Deno.args[0] || "full";
 

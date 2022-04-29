@@ -4,7 +4,7 @@ import { Text_File } from "../src/Shell.ts";
 import { assertMatch as matches, assertEquals as EQUALS } from "https://deno.land/std/testing/asserts.ts";
 import { deepEqual } from "https://deno.land/x/cotton/src/utils/deepequal.ts";
 import { bold as BOLD, blue as BLUE, green as GREEN, red as RED, bgBlue, yellow as YELLOW, white  } from "https://deno.land/std/fmt/colors.ts";
-import { ensureDirSync } from "https://deno.land/std/fs/mod.ts";
+import { emptyDirSync, ensureDirSync } from "https://deno.land/std/fs/mod.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 
 // # =============================================================================
@@ -21,8 +21,9 @@ export { matches };
 
 // # =============================================================================
 const CHECK_MARK = "✓";
-const X_MARK = "✗";
-const THIS_CWD = Deno.cwd();
+const X_MARK     = "✗";
+const THIS_CWD   = Deno.cwd();
+let TEST_DIR     = THIS_CWD;
 
 // # =============================================================================
 function is_async_function(x: any) {
@@ -91,16 +92,17 @@ class File {
 
 class Describe {
   title: string;
-  its: It[];
-  file: string;
+  its:   It[];
+  file:  string;
+
   constructor(t: string) {
     this.title = t;
     this.its = [];
     this.file = filename(caller() || `[UNKNOWN FILE ${++unknown_caller}`);
   } // constructor
 
-  it(t: string, f: Async_Function) {
-    const i = new It(t, f);
+  it(t: string, f: Async_Function, test_dir: string) {
+    const i = new It(t, f, test_dir);
     this.its.push(i);
     return i;
   } // method
@@ -111,12 +113,14 @@ class Describe {
 } // class
 
 class It {
-  title: string;
-  func:  Async_Function;
+  title:    string;
+  func:     Async_Function;
+  test_dir: string;
 
-  constructor(t: string, f: Async_Function) {
-    this.title = t;
-    this.func = f;
+  constructor(t: string, f: Async_Function, test_dir: string) {
+    this.title    = t;
+    this.func     = f;
+    this.test_dir = test_dir;
   } // constructor
 
   matches(s: string): boolean {
@@ -124,9 +128,15 @@ class It {
   } // matches
 } // class
 
+export function ch_test_dir(destination: string = "tmp/test_run") {
+  TEST_DIR = destination;
+  return TEST_DIR;
+} // export function
+
 export function describe(title: string) {
   const current_caller = filename(caller() || `[UNKNOWN FILE ${++unknown_caller}`);
   if (current_caller !== module_caller) {
+    TEST_DIR = THIS_CWD;
     PRINT_STACK.push({filename: current_caller});
     FILE_STACK.push(new File(current_caller));
     module_caller = current_caller
@@ -140,7 +150,7 @@ export function it(title: string, raw_f: Void_Function | Async_Function) {
     (raw_f as Async_Function) :
     (function () { return Promise.resolve(raw_f()); });
 
-  FILE_STACK.at(-1)!.descs.at(-1)!.it(title, f);
+  FILE_STACK.at(-1)!.descs.at(-1)!.it(title, f, TEST_DIR);
   PRINT_STACK.push({
     "it": title,
     "async_f": f
@@ -177,14 +187,17 @@ export async function finish(match? : string) {
         const res = Deno.resources();
         const version = `${f.file} ${d.title} ${i.title}`;
 
-        if (LAST_FAIL_VERSION && version !== LAST_FAIL_VERSION) {
+        if (LAST_FAIL_VERSION && version !== LAST_FAIL_VERSION)
           continue;
-        }
 
         prompt(`  ${i.title} `);
 
         at_least_one_it_ran = true;
         try {
+          if (THIS_CWD !== i.test_dir) {
+            emptyDirSync(i.test_dir);
+            Deno.chdir(i.test_dir)
+          }
           await i.func();
           Deno.chdir(THIS_CWD);
           prompt(GREEN(`${CHECK_MARK}\n`));
