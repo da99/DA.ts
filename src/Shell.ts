@@ -1016,20 +1016,23 @@ export function chmod(f: string, n: number) {
   return Deno.chmodSync(f, n)
 } // export function
 
-
-export function copy_file(src: string, dest: string) {
-  return Deno.copyFileSync(src, dest);
-} // export function
-
 export function cwd() {
   return Deno.cwd();
 } // export function
 
 export function move(a: string, b: string) {
-  return Deno.renameSync(a, b);
+  return rename(a, b);
 } // export function
 
 export function rename(a: string, b: string) {
+  let bstat = null;
+  try {
+    bstat = Deno.lstatSync(b);
+  } catch (e) {
+    // ignore
+  }
+  if (bstat)
+    throw new Error(`rename:${Deno.inspect(a)}, ${Deno.inspect(b)}. Destination already exists.`);
   return Deno.renameSync(a, b);
 } // export function
 
@@ -1053,7 +1056,7 @@ export async function fetch_json(u: string | Request) {
   return fetch(u).then(x => x.json());
 } // export async function
 
-export function cp(src: string, dest: string) {
+export function copy_file(src: string, dest: string) {
   const stat_src = Deno.lstatSync(src);
   if (!stat_src.isFile) {
     throw new Error(`${Deno.inspect(src)} is not a file.`);
@@ -1069,7 +1072,7 @@ export function cp(src: string, dest: string) {
   return Deno.copyFileSync(src, dest);
 } // export function
 
-export function cp_r(src: string, dest: string) {
+export function copy_dir(src: string, dest: string) {
   const s_info = Deno.lstatSync(src);
   if (!s_info.isDirectory) {
     throw new Error(`${Deno.inspect(src)} is not a directory.`);

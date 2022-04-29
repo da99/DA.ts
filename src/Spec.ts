@@ -165,7 +165,12 @@ export async function finish(match? : string) {
     for (const d of descs) {
       prompt(`${BOLD(BLUE(d.title))}\n`);
 
-      let its = (match) ? d.its.filter(i => i.matches(match)) : d.its;
+      let its = d.its;
+      if (match) {
+        if (!d.title.match(match))
+          its = d.its.filter(i => i.matches(match));
+      }
+
       if (its.length === 0)
         its = d.its;
       for (const i of its) {

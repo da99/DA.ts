@@ -6,7 +6,9 @@ import {
   shell_string,
   empty_dir,
   mkdir_p,
-  cp, cp_r
+  copy_file, copy_dir,
+  fetch_text, fetch_json,
+  rename
 } from "../src/Shell.ts";
 
 // =============================================================================
@@ -50,7 +52,48 @@ it("returns the value of the function", async () => {
 });
 
 // =============================================================================
-describe("cp");
+describe("rename");
+// =============================================================================
+
+it("can rename a file", () => {
+  const actual = local_tmp("spec.dsl/rename", () => {
+    empty_dir();
+    Deno.writeTextFileSync("a.txt", "hello rename");
+    rename("a.txt", "b.txt");
+    return Deno.readTextFileSync("b.txt");
+  })
+  equals(actual, "hello rename");
+});
+
+it("can rename a directory", () => {
+  const actual = local_tmp("spec.dsl/rename", () => {
+    empty_dir();
+    mkdir_p("olddir")
+    Deno.writeTextFileSync("olddir/a.txt", "hello old dir");
+    rename("olddir", "newdir");
+    return Deno.readTextFileSync("newdir/a.txt");
+  })
+  equals(actual, "hello old dir");
+});
+
+it("throws an error if destination already exists", () => {
+  let msg = "no error thrown";
+  const actual = local_tmp("spec.dsl/rename", () => {
+    empty_dir();
+    mkdir_p("olddir")
+    mkdir_p("newdir")
+    try {
+      rename("olddir", "newdir");
+    } catch (e) {
+      msg = e.message;
+    }
+    return msg;
+  });
+  matches(actual, /.newdir.+already exists/);
+});
+
+// =============================================================================
+describe("copy_file");
 // =============================================================================
 
 it("copies a file to the inside of an existing directory", () => {
@@ -58,30 +101,29 @@ it("copies a file to the inside of an existing directory", () => {
     empty_dir();
     mkdir_p("adir");
     Deno.writeTextFileSync("a.txt", "hello 01");
-    cp("a.txt", "adir");
+    copy_file("a.txt", "adir");
     return Deno.readTextFileSync("adir/a.txt");
   })
   equals(actual, "hello 01");
 });
 
 it("throws an error if the source is a directory.", () => {
-  let msg = "no error thrown."
   const actual = local_tmp("spec.dsl/cp", () => {
     empty_dir();
     mkdir_p("adir");
     Deno.writeTextFileSync("adir/a.txt", "hello 01");
     try {
-      cp("adir", "bdir");
+      copy_file("adir", "bdir");
     } catch (e) {
-      msg = e.message
+      return e.message;
     }
-    return msg;
+    return "no error thrown.";
   })
   matches(actual, /.adir. is not a file/);
 });
 
 // =============================================================================
-describe("cp_r");
+describe("copy_dir");
 // =============================================================================
 
 it("copies a directory to the inside of an existing directory", () => {
@@ -90,7 +132,7 @@ it("copies a directory to the inside of an existing directory", () => {
     mkdir_p("a");
     mkdir_p("b");
     Deno.writeTextFileSync("a/a.txt", "hello cp_r");
-    cp_r("a", "b");
+    copy_dir("a", "b");
     return Deno.readTextFileSync("b/a/a.txt");
   })
   equals(actual, "hello cp_r");
@@ -101,23 +143,57 @@ it("copies a directory to the specified non-existing directory", () => {
     empty_dir();
     mkdir_p("a");
     Deno.writeTextFileSync("a/a.txt", "hello new_A");
-    cp_r("a", "new_a");
+    copy_dir("a", "new_a");
     return Deno.readTextFileSync("new_a/a.txt");
   })
   equals(actual, "hello new_A");
 });
 
-it("throws an error if a file is copied", () => {
+it("throws an error if src is a file", () => {
   const actual = local_tmp("spec.dsl/cp_r", () => {
     empty_dir();
     mkdir_p("a");
     Deno.writeTextFileSync("a/a.txt", "hello new_A");
     try {
-      cp_r("a/a.txt", "new_a");
+      copy_dir("a/a.txt", "new_a");
     } catch (e) {
       return e.message;
     }
     return "no error thrown.";
   })
-  matches(actual, /is not a directory/, actual);
+  matches(actual, /.a\/a.txt. is not a directory/);
+});
+
+it("throws an error if dest is a file", () => {
+  const actual = local_tmp("spec.dsl/cp_r", () => {
+    empty_dir();
+    mkdir_p("a");
+    Deno.writeTextFileSync("a/a.txt", "hello new_A");
+    Deno.writeTextFileSync("b.txt", "hello b.txt");
+    try {
+      copy_dir("a", "b.txt");
+    } catch (e) {
+      return e.message;
+    }
+    return "no error thrown.";
+  })
+  matches(actual, /Cannot overwrite non-directory/);
+});
+
+// =============================================================================
+describe("fetch_text");
+// =============================================================================
+
+it("returns the content as text", async () => {
+  const actual = await fetch_text("https://deno.land/std/fs/mod.ts");
+  matches(actual, /ensure_dir.ts/);
+});
+
+// =============================================================================
+describe("fetch_json");
+// =============================================================================
+
+it("returns the content as json", async () => {
+  const actual = await fetch_json("https://api.github.com/repos/denoland/deno/releases/latest");
+  equals("assets" in actual, true, Object.keys(actual));
 });
