@@ -101,12 +101,10 @@ class File {
 class Describe {
   title: string;
   its:   It[];
-  file:  string;
 
   constructor(t: string) {
     this.title = t;
     this.its = [];
-    this.file = filename(caller() || `[UNKNOWN FILE ${++unknown_caller}`);
   } // constructor
 
   it(t: string, f: Async_Function, test_dir: string) {
@@ -149,22 +147,27 @@ class It {
   } // matches
 } // class
 
-/*
-  * Prepends "tmp/" to the destination.
-*/
-export function ch_test_dir(destination: string = "test_run") {
-  TEST_DIR = path.join("tmp", destination);
-  return TEST_DIR;
-} // export function
-
-export function describe(title: string) {
-  const current_caller = filename(caller() || `[UNKNOWN FILE ${++unknown_caller}`);
+function update_caller(x: undefined | string) {
+  const current_caller = filename(x || `[UNKNOWN FILE ${++unknown_caller}`);
   if (current_caller !== module_caller) {
     TEST_DIR = THIS_CWD;
     PRINT_STACK.push({filename: current_caller});
     FILE_STACK.push(new File(current_caller));
     module_caller = current_caller
   }
+} // function
+
+/*
+  * Prepends "tmp/" to the destination.
+*/
+export function ch_test_dir(destination: string = "test_run") {
+  update_caller(caller());
+  TEST_DIR = path.join("tmp", destination);
+  return TEST_DIR;
+} // export function
+
+export function describe(title: string) {
+  update_caller(caller());
   FILE_STACK.at(-1)!.desc(title);
   PRINT_STACK.push({describe: title});
 } // function

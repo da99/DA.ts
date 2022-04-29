@@ -4,11 +4,11 @@
  *   Nunjucks: requires permission to read ./ (CWD)
  */
 
-import {emptyDir, existsSync, ensureDirSync, ensureDir} from "https://deno.land/std/fs/mod.ts";
+// import {ensureDir} from "https://deno.land/std/fs/mod.ts";
 import nunjucks from "https://deno.land/x/nunjucks/mod.js";
 import {throw_on_fail, run} from "./Process.ts";
 import {split_whitespace} from "./String.ts";
-import {download, files} from "./Shell.ts";
+import {mk_dir, download, files} from "./Shell.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 import { bold, yellow } from "https://deno.land/std/fmt/colors.ts";
 
@@ -48,15 +48,14 @@ export async function build_worker(WORKER_TS: string, WORKER_JS: string) {
   const filename = WORKER_TS;
   const new_file = WORKER_JS;
   const { stdout } = await _run(`deno bundle ${filename}`);
-  await ensureDir(path.dirname(new_file));
+  mk_dir(path.dirname(new_file));
   await Deno.writeTextFile(new_file, stdout);
   print_wrote(new_file);
 } // export async function
 
 export function raw_www_files(): string[] {
   const exts = split_whitespace(".ts .less .njk");
-  return files(8).filter(f => exts.includes(path.extname(f.path)) && path.basename(f.path).charAt(0) !== "_")
-  .map(x => x.path);
+  return files(8).filter(f => exts.includes(path.extname(f)) && path.basename(f).charAt(0) !== "_");
 } // export function
 
 function assert_files_in(dir: string, files: string[]) {
@@ -112,7 +111,7 @@ export async function download_alpine_js(vendor: string) {
 
 export async function build_update(src_dir: string) {
   const vendor = path.join(src_dir, "vendor");
-  await ensureDir(vendor);
+  mk_dir(vendor);
   return await Promise.all([
     download_normalize_css(vendor),
     download_alpine_js(vendor)
@@ -122,7 +121,6 @@ export async function build_update(src_dir: string) {
 export async function build_app(group: "app"|"public"|"worker"|"update", RAW_CONFIG: Record<string, any>) {
   const CONFIG      = Object.assign({}, DEFAULT_OPTIONS, RAW_CONFIG);
   const PUBLIC      = CONFIG.public;
-  const PUBLIC_DIST = CONFIG.public_dist;
   const HTML_CONFIG = CONFIG.html || {};
   const WORKER_TS   = CONFIG["worker.ts"];
   const WORKER_JS   = CONFIG["worker.js"];
@@ -159,14 +157,10 @@ export async function build_app(group: "app"|"public"|"worker"|"update", RAW_CON
 } // export async function
 
 export async function build_public(site: Record<string, any>) {
-  const promises: Promise<any>[] = [];
   const files = raw_www_files();
   assert_files_in("./", files);
 
-  for (const f of files) {
-    promises.push(build_and_write_www_file(f, site));
-  }
-
+  const promises = files.map(f => build_and_write_www_file(f, site));
   return await Promise.all(promises);
 } // export async function
 
@@ -199,3 +193,4 @@ export async function build_and_write_www_file(f: string, o: Record<string, any>
     } // default
   } // switch
 } // export async function
+

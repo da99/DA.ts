@@ -13,6 +13,8 @@ import {
 } from "./Function.ts";
 
 import * as path from "https://deno.land/std/path/mod.ts";
+import {dirname} from "https://deno.land/std/path/mod.ts";
+export {dirname} from "https://deno.land/std/path/mod.ts";
 import { bold, green, yellow, blue } from "https://deno.land/std/fmt/colors.ts";
 import { readerFromStreamReader, copy } from "https://deno.land/std/streams/conversion.ts"
 import {
@@ -61,7 +63,7 @@ export interface Loop_Info {
 // Shell functions:
 // =============================================================================
 
-function stderr(r: Result): void {
+function print_stderr(r: Result): void {
   if (r.stderr !== "")
     console.error(`--- ${bold(r.cmd[0])} ${Deno.inspect(r.cmd.slice(1))}: ${yellow(r.stderr)}`);
 } // function
@@ -84,7 +86,7 @@ export async function shell_string(
   args = split_cmd(args);
   const proc = run([cmd].concat(args), "piped", verbosity());
   const result = (await ((throwable) ? throw_on_fail(proc): proc));
-  stderr(result)
+  print_stderr(result)
   return result.stdout.trim();
 } // export async
 
@@ -994,6 +996,7 @@ export function compile_template(tmpl_contents: string, vars: Record<string, str
   } // for
   return tmpl_contents;
 } // function
+
 // =============================================================================
 // Script Helpers:
 // Based on the deno CLI APIs: https://doc.deno.land/deno/stable/
@@ -1014,12 +1017,14 @@ export function move(a: string, b: string) {
 export function rename(a: string, b: string) {
   let bstat = null;
   try {
-    bstat = Deno.lstatSync(b);
+    bstat = lstat(b);
   } catch (e) {
     // ignore
   }
   if (bstat)
-    throw new Error(`rename:${Deno.inspect(a)}, ${Deno.inspect(b)}. Destination already exists.`);
+    throw new Error(`rename(${Deno.inspect(a)}, ${Deno.inspect(b)}). Destination already exists.`);
+  if (dirname(b) != ".")
+    throw new Error(`Invalid destination for rename: ${Deno.inspect(b)}. Try using 'move'.`)
   return Deno.renameSync(a, b);
 } // export function
 
@@ -1027,8 +1032,24 @@ export function stat(f: string) {
   return Deno.statSync(f);
 } // export function
 
-export function symbolic_link(src: string, dest: string) {
+export function lstat(f: string) {
+  return Deno.lstatSync(f);
+} // export function
+
+export function exists(x: string) {
+  try {
+    return !!lstat(x);
+  } catch (e) {
+    return false;
+  }
+} // export function
+
+export function mk_symbolic_link(src: string, dest: string) {
   return Deno.symlinkSync(src, dest);
+} // export function
+
+export function read_text_file(f: string, content: string) {
+  return Deno.readTextFileSync(f);
 } // export function
 
 export function write_text_file(f: string, content: string) {
@@ -1060,17 +1081,11 @@ export function copy_file(src: string, dest: string) {
 } // export function
 
 export function copy_dir(src: string, dest: string) {
-  const s_info = Deno.lstatSync(src);
-  if (!s_info.isDirectory) {
+  if (!is_directory(src))
     throw new Error(`${Deno.inspect(src)} is not a directory.`);
-  }
-  try {
-    const d = Deno.lstatSync(dest);
-    if (d.isDirectory) {
-      dest = path.join(dest, path.basename(src))
-    }
-  } catch (e) {
-    // ignore
+
+  if (is_directory(dest)) {
+    dest = path.join(dest, path.basename(src))
   }
   return copySync(src, dest);
 } // export function
@@ -1080,19 +1095,17 @@ export function copy_dir(src: string, dest: string) {
   * Uses copy_dir(a,b) if destination does not exist.
 */
 export function copy_files_of(src: string, dest: string) {
-  try {
-    Deno.lstatSync(dest);
-  } catch (e) {
+  if (!exists(dest))
     return copy_dir(src, dest);
-  }
 
-  const s_info = Deno.lstatSync(src);
-  if (!s_info.isDirectory) {
+  if (!is_directory(src)) {
     throw new Error(`${Deno.inspect(src)} is not a directory.`);
   }
 
-  Deno.lstatSync(dest);
-  const contents = cd(src, () => files(Infinity));
+  lstat(dest);
+
+  const contents = files_of(src, Infinity);
+
   for (const f of contents) {
     const f_dir = path.dirname(f);
     if (f_dir !== ".") {
@@ -1191,6 +1204,10 @@ export async function a_local_tmp<T>(dir: string, f: () => Promise<T>): Promise<
 } // export async function
 
 export function is_dir(raw: string) {
+  return is_directory(raw);
+} // export function
+
+export function is_directory(raw: string) {
   try {
     return Deno.lstatSync(raw).isDirectory;
   } catch (err) {

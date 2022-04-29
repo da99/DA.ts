@@ -22,6 +22,7 @@ import "./Text_File.ts";
 import "./File_Manifest.ts";
 import "./Shell.ts";
 import "./Shell.dsl.ts";
+import "./Build_WWW.ts";
 
 if (cmd === "full") {  }
 
