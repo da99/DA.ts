@@ -1079,7 +1079,7 @@ export function copy_dir(src: string, dest: string) {
   * Copy files in a directory into another.
   * Uses copy_dir(a,b) if destination does not exist.
 */
-export function copy_contents(src: string, dest: string) {
+export function copy_files_of(src: string, dest: string) {
   try {
     Deno.lstatSync(dest);
   } catch (e) {
@@ -1114,6 +1114,10 @@ export function cp_rf(src: string, dest: string) {
 export function files(maxDepth: number = 1): string[] {
   const i = walkSync(".", {maxDepth, includeDirs: false, followSymlinks: false});
   return [...i].map(x => x.path);
+} // export function
+
+export function files_of(d_path: string, maxDepth: number = 1) {
+  return cd(d_path, () => files(maxDepth));
 } // export function
 
 export function mk_file(file_path: string) {
@@ -1336,18 +1340,19 @@ export async function download(url: string, file?: string) {
 } // export async function
 
 
-class Directory {
-  path: string;
+// class Directory {
+//   path: string;
+//
+//   constructor(d_path: string) {
+//     const stat = Deno.lstatSync(d_path);
+//     if (!stat.isDirectory) {
+//       throw new Error(`Not a directory: ${Deno.inspect(d_path)}`);
+//     }
+//     this.path = d_path;
+//   }
+//
+//   files(maxDepth: number = 5) {
+//     return cd(this.path, () => files(maxDepth));
+//   } // methd
+// } // class
 
-  constructor(d_path: string) {
-    this.path = d_path;
-  }
-
-  files(maxDepth: number = 5) {
-    return cd(this.path, () => files(maxDepth));
-  } // methd
-} // class
-
-export function directory(d_path: string) {
-  return new Directory(d_path);
-} // export function

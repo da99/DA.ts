@@ -6,12 +6,12 @@ import {
   shell_string,
   empty_dir,
   mk_dir,
-  copy_file, copy_dir, copy_contents,
+  copy_file, copy_dir, copy_files_of,
   fetch_text, fetch_json,
   rename,
   mk_file,
   files, cd,
-  directory
+  files_of
 } from "../src/Shell.ts";
 
 // =============================================================================
@@ -174,16 +174,16 @@ it("throws an error if dest is a file", () => {
 });
 
 // =============================================================================
-describe("copy_contents");
+describe("copy_files_of");
 // =============================================================================
 
 it("copies files into a non-existing directory: copy_dir(a,b) -> b/...", () => {
   mk_dir("a");
   Deno.writeTextFileSync("a/a.txt", "hello new_A");
   Deno.writeTextFileSync("a/b.txt", "hello new_B");
-  copy_contents("a", "b");
+  copy_files_of("a", "b");
 
-  const f = directory('b').files();
+  const f = files_of('b', Infinity);
   equals(f, ["a.txt", "b.txt"]);
 });
 
@@ -192,9 +192,9 @@ it("copies files into an existing directory: copy_dir(a,b) -> b/...", () => {
   Deno.writeTextFileSync("a/a.txt", "hello new_A");
   Deno.writeTextFileSync("a/b.txt", "hello new_B");
   mk_dir("b");
-  copy_contents("a", "b");
+  copy_files_of("a", "b");
 
-  const f = directory("b").files(Infinity);
+  const f = files_of('b', Infinity);
   equals(f, ["a.txt", "b.txt"]);
 });
 
