@@ -8,8 +8,28 @@ import {
   mkdir_p,
   copy_file, copy_dir,
   fetch_text, fetch_json,
-  rename
+  rename,
+  ensure_file,
+  files
 } from "../src/Shell.ts";
+
+// =============================================================================
+describe("fetch_text");
+// =============================================================================
+
+it("returns the content as text", async () => {
+  const actual = await fetch_text("https://deno.land/std/fs/mod.ts");
+  matches(actual, /ensure_dir.ts/);
+});
+
+// =============================================================================
+describe("fetch_json");
+// =============================================================================
+
+it("returns the content as json", async () => {
+  const actual = await fetch_json("https://api.github.com/repos/denoland/deno/releases/latest");
+  equals("assets" in actual, true, Object.keys(actual));
+});
 
 // =============================================================================
 describe("local_tmp");
@@ -180,20 +200,16 @@ it("throws an error if dest is a file", () => {
   matches(actual, /Cannot overwrite non-directory/);
 });
 
-// =============================================================================
-describe("fetch_text");
-// =============================================================================
-
-it("returns the content as text", async () => {
-  const actual = await fetch_text("https://deno.land/std/fs/mod.ts");
-  matches(actual, /ensure_dir.ts/);
-});
 
 // =============================================================================
-describe("fetch_json");
+describe('ensure_file');
 // =============================================================================
 
-it("returns the content as json", async () => {
-  const actual = await fetch_json("https://api.github.com/repos/denoland/deno/releases/latest");
-  equals("assets" in actual, true, Object.keys(actual));
-});
+it("creates a file if it doesn't exist.", () => {
+  const actual = local_tmp("spec.dsl/ensure_file", () => {
+    empty_dir();
+    ensure_file("hello1.txt");
+    return files().map(x => x.path);
+  })
+  equals(actual, ["hello1.txt"]);
+})

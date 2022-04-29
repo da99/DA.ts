@@ -20,7 +20,8 @@ import {
   emptyDirSync,
   ensureDir,
   ensureDirSync,
-  copySync
+  copySync,
+  walkSync
 } from "https://deno.land/std/fs/mod.ts";
 
 
@@ -1287,3 +1288,19 @@ export async function download(url: string, file?: string) {
   }
   return true;
 } // export async function
+
+export function ensure_file(file_path: string) {
+  try {
+    Deno.lstatSync(file_path);
+    return true;
+  } catch (e) {
+    Deno.writeTextFileSync(file_path, "");
+  }
+  return false;
+} // export function
+
+export function files(maxDepth: number = 1) {
+  const i = walkSync(".", {maxDepth, includeDirs: false, followSymlinks: false});
+  return [...i];
+} // export function
+
