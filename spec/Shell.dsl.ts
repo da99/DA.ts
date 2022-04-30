@@ -224,25 +224,30 @@ it("moves the file to the specified directory", () => {
   const expect = "hello new_A";
   write_text_file('a/a.txt', expect);
   mk('b/');
-  move('a/a.txt', 'b');
+  move('a/a.txt', 'b/');
 
   equals(files_of('b', Infinity), ["a.txt"]);
 });
 
-it("creates the directory structure in the specified file path: move('a/a.txt', 'b/c/d.txt')", () => {
+it("creates the directory structure in the specified file path: move('a/a.txt', 'e/d/')", () => {
   const expect = "hello new_A";
   write_text_file('a/a.txt', expect);
-  move('a/a.txt', 'e/d/b.txt');
+  mk('e/d/');
+  move('a/a.txt', 'e/d/');
 
-  equals(read_text_file('e/d/b.txt'), expect);
+  equals(read_text_file('e/d/a.txt'), expect);
 });
 
-it("creates the directory structure and moves the file: move('file', 'dir/')", () => {
-  const expect = "hello new_A";
-  write_text_file('a/c.txt', expect);
-  move('a/c.txt', 'e/d/');
+it("throws an Error if destination directory does not exist", () => {
+  let m = "no error thrown";
+  write_text_file('a/c.txt', "hello new_A");
+  try {
+    move('a/c.txt', 'e/d/');
+  } catch (e) {
+    m = e.message;
+  }
 
-  equals(read_text_file('e/d/c.txt'), expect);
+  matches(m, /e.d.+ does not exist/);
 });
 
 
@@ -253,16 +258,21 @@ describe("move directorys");
 it("moves the directory to the specified directory", () => {
   mk('a/c.txt');
   mk('b/');
-  move('a', 'b');
+  move('a/', 'b/');
 
   equals(dirs_of('b', Infinity), ['a']);
 });
 
-it("creates the directory structure in the specified path", () => {
-  mk('a/');
-  move('a', 'e/d/a');
+it("throws an Error if destination directory does not exist", () => {
+  let m = "no error thrown";
+  mk("a/b/c/")
+  try {
+    move('a/b/c/', 'f/e/d/');
+  } catch (e) {
+    m = e.message;
+  }
 
-  equals(dirs_of('e', Infinity), ['d','d/a']);
+  matches(m, /f.e.d.+ does not exist/);
 });
 
 // =============================================================================

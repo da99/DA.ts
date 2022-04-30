@@ -10,8 +10,6 @@ import {
 } from "./Function.ts";
 
 import * as path from "https://deno.land/std/path/mod.ts";
-import {dirname} from "https://deno.land/std/path/mod.ts";
-export {dirname} from "https://deno.land/std/path/mod.ts";
 import { bold, green, yellow, blue } from "https://deno.land/std/fmt/colors.ts";
 import { readerFromStreamReader, copy as copyIO } from "https://deno.land/std/streams/conversion.ts"
 import {
@@ -21,6 +19,8 @@ import {
   walkSync
 } from "https://deno.land/std/fs/mod.ts";
 
+import {join, common} from "https://deno.land/std/path/mod.ts";
+export {join, common};
 
 import type {Arrange_Spec} from "./Array.ts";
 import type {VERBOSE_LEVEL, Result} from "./Process.ts";
@@ -1006,30 +1006,62 @@ export function cwd() {
   return Deno.cwd();
 } // export function
 
+export function dir(s: string, opt: '.' | '/' | 'cwd' | 'cwd/' = '.') {
+  const o = path.dirname(s);
+  switch (opt) {
+    case '.': { return o; }
+    case '/': { return path.join(o, '/'); }
+    case 'cwd': {
+      return (o === '.') ? cwd() : o;
+    }
+    case 'cwd/': {
+      return (o === '.') ? path.join(cwd(), '/') : o;
+    }
+  }
+} // export function
+
+function human_fs_arg(x: string): string {
+  const a = (x.at(-1) === '/') ? "dir" : "file";
+  const b = (is_exist(x)) ? '' : '?';
+  const si = x.indexOf('/');
+  const s = (si > -1 && si < x.length - 1) ? '/' : '';
+  return `${s}${a}${b}`;
+} // function
+
+function human_fs_args(a: string, b: string): string {
+  return [a,b].map(human_fs_arg).join(' -> ');
+} // function
+
 export function move(a: string, b: string) {
   if (!is_exist(a))
     throw new Error(`move(${inspect(a)}, ${inspect(b)}): ${inspect(a)} does not exist.`);
 
-  if (is_dir(a) && !is_exist(b)) {
-    mk(dirname(b) + '/')
-    return Deno.renameSync(a, b);
-  }
+  let action = human_fs_args(a,b);
 
-  if (!is_exist(b)) {
-    if (is_file(a)) {
-      if (b.at(-1) === '/') {
-        mk(b);
-        return Deno.renameSync(a, join(b, basename(a)))
-      }
-      mk(dirname(b) + '/')
+  switch (action) {
+    case "/file -> /dir":
+    case "/file -> dir":
+    case "file -> /dir":
+    case "file -> dir": {
+      return Deno.renameSync(a, join(b, base(a)))
     }
-    return Deno.renameSync(a, b);
-  }
 
-  if (is_dir(b))
-    return Deno.renameSync(a, join(b, basename(a)));
+    case "/dir -> dir":
+    case "/dir -> /dir":
+    case "dir -> /dir":
+    case "dir -> dir": {
+      return Deno.renameSync(a, join(b, base(a)))
+    }
+  } // switch
 
-  throw new Error(`move(${inspect(a)}, ${inspect(b)}): ${inspect(b)} already exists.`);
+
+  if (!is_exist(a))
+    throw new Error(`move(${a}, ${b}): ${inspect(a)} does not exist.`);
+  if (action.match(/file\??$/))
+    throw new Error(`move(${a}, ${b}): 2nd argument must be a path to a directory.`);
+  if (action.match(/dir\?$/))
+      throw new Error(`move(${a}, ${b}): ${inspect(b)} does not exist.`);
+  throw new Error(`Invalid arguments for move(${a}, ${b}): ${action}`);
 } // export function
 
 export function rename(a: string, b: string) {
@@ -1043,7 +1075,7 @@ export function rename(a: string, b: string) {
   }
   if (bstat)
     throw new Error(`rename(${Deno.inspect(a)}, ${Deno.inspect(b)}). Destination already exists.`);
-  if (dirname(b) != ".")
+  if (dir(b) != ".")
     throw new Error(`Invalid destination for rename: ${Deno.inspect(b)}. Try using 'move'.`)
   return Deno.renameSync(a, b);
 } // export function
@@ -1111,7 +1143,7 @@ export function copy_contents_of(src: string, dest: string) {
     throw new Error(`${src} does not exist`);
 
   if (is_exist(real_path(src)) && !is_exist(dest)) {
-    mk(dirname(dest) + '/')
+    mk(dir(dest, '/'))
     return copy(real_path(src), dest);
   }
 
@@ -1119,7 +1151,7 @@ export function copy_contents_of(src: string, dest: string) {
     throw new Error(`${inspect(src)} is not a directory.`);
 
   for (const f of files_of(real_path(src), Infinity)) {
-    const f_dir = dirname(f);
+    const f_dir = dir(f);
     if (f_dir !== ".") {
       const new_f_dir = join(dest, f_dir, '/');
       mk(new_f_dir)
@@ -1136,11 +1168,7 @@ export function ext(f: string = '.'): string {
   return path.extname(f);
 } // export function
 
-export function join(...s: string[]): string {
-  return path.join(...s);
-} // export function
-
-export function basename(f: string): string {
+export function base(f: string): string {
   return path.basename(f);
 } // export function
 
@@ -1193,9 +1221,9 @@ export function mk(file_path: string, f?: Function) {
     return ensureDirSync(file_path);
   }
 
-  const dir = path.dirname(file_path);
-  if (dir !== ".")
-    mk(`${dir}/`);
+  const d = dir(file_path);
+  if (d !== ".")
+    mk(`${d}/`);
 
   Deno.writeTextFileSync(file_path, "");
   return false;
