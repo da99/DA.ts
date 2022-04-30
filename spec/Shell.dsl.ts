@@ -1,18 +1,18 @@
 
 import { ch_test_dir, describe, it, equals, matches } from "../src/Spec.ts";
 import {
-  local_tmp, a_local_tmp,
-  tmp, a_tmp,
   shell_string,
-  empty_dir,
-  mk_dir,
-  copy_file, copy_dir, copy_files_of,
+  copy, copy_contents_of,
   fetch_text, fetch_json,
   rename,
-  mk_file,
-  files, cd,
-  files_of
+  mk, a_mk, cd, a_cd,
+  files_of, dirs_of, remove,
+  move, read_text_file, write_text_file
 } from "../src/Shell.ts";
+
+// =============================================================================
+ch_test_dir(); // =============================================================
+// =============================================================================
 
 // =============================================================================
 describe("fetch_text");
@@ -33,48 +33,48 @@ it("returns the content as json", async () => {
 });
 
 // =============================================================================
-describe("local_tmp");
+describe("cd execute");
 // =============================================================================
 
-it("executes commands in ./tmp", () => {
+it("executes commands in specified directory", () => {
   const contents = Date.now().toString();
-  local_tmp("spec.dsl", () => {
+  mk("tmp/")
+  cd("tmp/", () => {
     Deno.writeTextFileSync("a.txt", contents);
   });
-  const actual = Deno.readTextFileSync("tmp/spec.dsl/a.txt");
+  const actual = read_text_file("tmp/a.txt");
   equals(actual, contents);
 });
 
 it("returns the value of the function", async () => {
-  const actual = local_tmp("spec.dsl", () => {
-    return "hello sync"
+  mk("a/b/")
+  const actual = cd("a/b/", () => {
+    return 'hello a/b';
   });
-  equals(actual, "hello sync");
+  equals(actual, "hello a/b");
 });
 
 // =============================================================================
-describe("a_local_tmp");
+describe("a_cd");
 // =============================================================================
 
 it("executes commands in ./tmp", async () => {
   const contents = Date.now().toString();
-  const x = await a_local_tmp("spec.dsl", async () => {
-    return await Deno.writeTextFile("b.txt", contents);
+  mk("a/b/");
+  await a_cd("a/b/", async () => {
+    return await Deno.writeTextFile("c.txt", contents);
   });
-  const actual = Deno.readTextFileSync("tmp/spec.dsl/b.txt");
+  const actual = read_text_file("a/b/c.txt");
   equals(actual, contents);
 });
 
 it("returns the value of the function", async () => {
-  const actual = await a_local_tmp("spec.dsl", async () => {
+  mk("a/b/c/");
+  const actual = await a_cd("a/b/c/", async () => {
     return shell_string(`echo`, 'hello')
   });
   equals(actual, "hello");
 });
-
-// =============================================================================
-ch_test_dir(); // =============================================================
-// =============================================================================
 
 // =============================================================================
 describe("rename");
@@ -88,8 +88,7 @@ it("can rename a file", () => {
 });
 
 it("can rename a directory", () => {
-  mk_dir("olddir")
-  Deno.writeTextFileSync("olddir/a.txt", "hello old dir");
+  write_text_file("olddir/a.txt", "hello old dir");
   rename("olddir", "newdir");
 
   equals(Deno.readTextFileSync("newdir/a.txt"), "hello old dir");
@@ -97,8 +96,8 @@ it("can rename a directory", () => {
 
 it("throws an error if destination already exists", () => {
   let msg = "no error thrown";
-  mk_dir("olddir")
-  mk_dir("newdir")
+  mk("olddir/")
+  mk("newdir/")
   try {
     rename("olddir", "newdir");
   } catch (e) { msg = e.message; }
@@ -107,142 +106,233 @@ it("throws an error if destination already exists", () => {
 });
 
 // =============================================================================
-describe("copy_file");
+describe("copy file");
 // =============================================================================
 
 it("copies a file to the inside of an existing directory", () => {
-  mk_dir("adir");
-  Deno.writeTextFileSync("a.txt", "hello 01");
-  copy_file("a.txt", "adir");
+  mk("adir/");
+  write_text_file("a.txt", "hello 01");
+  copy("a.txt", "adir");
 
-  equals(Deno.readTextFileSync("adir/a.txt"), "hello 01");
-});
-
-it("throws an error if the source is a directory.", () => {
-  let actual = "no error thrown.";
-  mk_dir("adir");
-  Deno.writeTextFileSync("adir/a.txt", "hello 01");
-  try {
-    copy_file("adir", "bdir");
-  } catch (e) { actual = e.message; }
-
-  matches(actual, /.adir. is not a file/);
+  equals(read_text_file("adir/a.txt"), "hello 01");
 });
 
 // =============================================================================
-describe("copy_dir");
+describe("copy directory");
 // =============================================================================
 
 it("copies a directory to the inside of an existing directory: copy_dir(a, b) -> b/a", () => {
-  mk_dir("a");
-  mk_dir("b");
-  Deno.writeTextFileSync("a/a.txt", "hello cp_r");
-  copy_dir("a", "b");
+  write_text_file("a/a.txt", "hello cp_r");
+  mk("b/");
+  copy("a", "b");
 
-  equals(Deno.readTextFileSync("b/a/a.txt"), "hello cp_r");
+  equals(read_text_file("b/a/a.txt"), "hello cp_r");
 });
 
-it("copies a directory to the specified non-existing directory: copy_dir(a,b) -> b", () => {
-  mk_dir("a");
-  Deno.writeTextFileSync("a/a.txt", "hello new_A");
-  copy_dir("a", "new_a");
+it("copies a directory to the specified existing directory: copy_dir(a,b) -> b/a", () => {
+  write_text_file("a/a.txt", "hello new_A");
+  mk("new_a/")
+  copy("a", "new_a");
 
-  equals(Deno.readTextFileSync("new_a/a.txt"), "hello new_A");
+  equals(read_text_file("new_a/a/a.txt"), "hello new_A");
 });
 
 
-it("throws an error if src is a file", () => {
-  mk_dir("a");
-  Deno.writeTextFileSync("a/a.txt", "hello new_A");
-  try {
-    copy_dir("a/a.txt", "new_a");
-  } catch (e) { return e.message; }
-
-  matches("no error thrown.", /.a\/a.txt. is not a directory/);
-});
-
-it("throws an error if dest is a file", () => {
+it("throws an error if src is a directory and dest is a file", () => {
   let actual = "no error thrown.";
-  mk_dir("a");
-  Deno.writeTextFileSync("a/a.txt", "hello new_A");
-  Deno.writeTextFileSync("b.txt", "hello b.txt");
+  write_text_file("a/a.txt", "hello new_A");
+  write_text_file("b.txt", "hello b.txt");
   try {
-    copy_dir("a", "b.txt");
+    copy("a", "b.txt");
   } catch (e) { actual = e.message; }
 
-  matches(actual, /Cannot overwrite non-directory/);
+  matches(actual, /destination exists, but is not a directory/);
 });
 
 // =============================================================================
-describe("copy_files_of");
+describe("copy_contents_of");
 // =============================================================================
 
 it("copies files into a non-existing directory: copy_dir(a,b) -> b/...", () => {
-  mk_dir("a");
-  Deno.writeTextFileSync("a/a.txt", "hello new_A");
-  Deno.writeTextFileSync("a/b.txt", "hello new_B");
-  copy_files_of("a", "b");
+  write_text_file("a/a.txt", "hello new_A");
+  write_text_file("a/b.txt", "hello new_B");
+  copy_contents_of("a", "b");
 
-  const f = files_of('b', Infinity);
-  equals(f, ["a.txt", "b.txt"]);
+  equals(
+    files_of('b', Infinity),
+    ["a.txt", "b.txt"]
+  );
 });
 
 it("copies files into an existing directory: copy_dir(a,b) -> b/...", () => {
-  mk_dir("a");
-  Deno.writeTextFileSync("a/a.txt", "hello new_A");
-  Deno.writeTextFileSync("a/b.txt", "hello new_B");
-  mk_dir("b");
-  copy_files_of("a", "b");
+  write_text_file("a/a.txt", "hello new_A");
+  write_text_file("a/b.txt", "hello new_B");
+  mk("b/");
+  copy_contents_of("a", "b");
 
-  const f = files_of('b', Infinity);
-  equals(f, ["a.txt", "b.txt"]);
+  equals(
+    files_of('b', Infinity),
+    ["a.txt", "b.txt"]
+  );
 });
 
 // =============================================================================
-describe('mk_file');
+describe("move files");
+// =============================================================================
+
+it("moves the file to the specified directory", () => {
+  const expect = "hello new_A";
+  write_text_file('a/a.txt', expect);
+  mk('b/');
+  move('a/a.txt', 'b');
+
+  equals(files_of('b', Infinity), ["a.txt"]);
+});
+
+it("creates the directory structure in the specified file path: move('a/a.txt', 'b/c/d.txt')", () => {
+  const expect = "hello new_A";
+  write_text_file('a/a.txt', expect);
+  move('a/a.txt', 'e/d/b.txt');
+
+  equals(read_text_file('e/d/b.txt'), expect);
+});
+
+it("creates the directory structure and moves the file: move('file', 'dir/')", () => {
+  const expect = "hello new_A";
+  write_text_file('a/c.txt', expect);
+  move('a/c.txt', 'e/d/');
+
+  equals(read_text_file('e/d/c.txt'), expect);
+});
+
+
+// =============================================================================
+describe("move directorys");
+// =============================================================================
+
+it("moves the directory to the specified directory", () => {
+  mk('a/c.txt');
+  mk('b/');
+  move('a', 'b');
+
+  equals(dirs_of('b', Infinity), ['a']);
+});
+
+it("creates the directory structure in the specified path", () => {
+  mk('a/');
+  move('a', 'e/d/a');
+
+  equals(dirs_of('e', Infinity), ['d','d/a']);
+});
+
+// =============================================================================
+describe("remove file");
+// =============================================================================
+
+it("removes the file", () => {
+  write_text_file("a/a.txt", "hello new_A");
+  write_text_file("a/b.txt", "hello new_B");
+  remove("a/b.txt");
+
+  equals(files_of('a', Infinity), ["a.txt"]);
+});
+
+it("throws if file does not exist.", () => {
+  let m = "no error thrown";
+
+  try {
+    remove("a/b.txt");
+  } catch (e) {
+    m = e.message;
+  }
+
+  matches(m, /b.txt.+ does not exist/);
+});
+
+it("does not throw if file does not exist and set to 'ignore'", () => {
+  let m = "no error thrown";
+  remove("a/b.txt", 'ignore');
+  equals(m, "no error thrown")
+});
+
+// =============================================================================
+describe("remove_directory");
+// =============================================================================
+
+it("removes the directory", () => {
+  mk('a/');
+  mk('b/');
+  remove('b');
+
+  equals(dirs_of(".", Infinity), ["a"]);
+});
+
+it("throws if directory does not exist.", () => {
+  let m = "no error thrown";
+
+  try {
+    remove("a/");
+  } catch (e) {
+    m = e.message;
+  }
+
+  matches(m, /a.+ does not exist/);
+});
+
+it("does not throw if directory does not exist and set to 'ignore'", () => {
+  let m = "no error thrown";
+  remove("a/", 'ignore');
+  equals(m, "no error thrown")
+});
+
+
+// =============================================================================
+describe('mk file');
 // =============================================================================
 
 it("creates a file if it doesn't exist.", () => {
-  mk_file("hello1.txt");
-  const actual = files();
+  mk("hello1.txt");
 
-  equals(actual, ["hello1.txt"]);
+  equals(files_of('.'), ["hello1.txt"]);
 });
 
 it("creates the directory structure if it doesn't exist.", () => {
-  mk_file("a/b/c/hello1.txt");
-  const actual = files(Infinity);
+  mk("a/b/c/hello1.txt");
 
-  equals(actual, ["a/b/c/hello1.txt"]);
+  equals(files_of('.', Infinity), ["a/b/c/hello1.txt"]);
 });
 
 
 // =============================================================================
-describe('files');
+describe('files_of');
 // =============================================================================
 
-it("lists files with maxDepth 1 by default: files()", () => {
-  mk_file("hello1.txt");
-  mk_file("a/b/c/hello2.txt");
-  const actual = files();
-
-  equals(actual, ["hello1.txt"]);
+it("lists files with maxDepth 1 by default: files_of()", () => {
+  mk("hello1.txt");
+  mk("a/b/c/hello2.txt");
+  equals(files_of(), ["hello1.txt"]);
 });
 
-it("lists files with the specified maxDepth: files(3)", () => {
-  mk_file("a/b/hello1.txt");
-  mk_file("a/b/hello2.txt");
-  mk_file("a/b/c/d/e/fhello2.txt");
-  const actual = files(3);
+it("lists files with the specified maxDepth: files_of('.', 3)", () => {
+  mk("a/b/hello1.txt");
+  mk("a/b/hello2.txt");
+  mk("a/b/c/d/e/fhello2.txt");
 
-  equals(actual, ["a/b/hello1.txt", "a/b/hello2.txt"]);
+  equals(
+    files_of('.', 3),
+    ["a/b/hello1.txt", "a/b/hello2.txt"]
+  );
 });
 
 it("does not list directories.", () => {
-  mk_file("hello1.txt");
-  mk_file("hello2.txt");
-  mk_dir("a/b/c");
-  const actual = files();
+  mk("hello1.txt");
+  mk("hello2.txt");
+  mk("a/b/c/");
 
-  equals(actual, ["hello1.txt", "hello2.txt"]);
+  equals(
+    files_of('.', Infinity),
+    ["hello1.txt", "hello2.txt"]
+  );
 });
+
+

@@ -1,6 +1,6 @@
 
 import { describe, it, equals, ch_test_dir } from "../src/Spec.ts";
-import { mk_file } from "../src/Shell.ts";
+import { mk} from "../src/Shell.ts";
 import { raw_www_files } from "../src/Build_WWW.ts";
 
 // =============================================================================
@@ -12,9 +12,9 @@ describe("raw_www_files");
 // =============================================================================
 
 it("lists files deeply nested", () => {
-  mk_file("a/b/c/home.njk");
-  mk_file("a/b/c/home.ts");
-  mk_file("a/b/c/home.less");
+  mk("a/b/c/home.njk");
+  mk("a/b/c/home.ts");
+  mk("a/b/c/home.less");
 
   equals(
     raw_www_files().sort(),

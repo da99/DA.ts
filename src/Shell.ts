@@ -1,7 +1,4 @@
 
-// import type {Result} from "./Process.ts";
-// import { flatten_cmd, split_whitespace } from "./String.ts";
-//
 import {run, throw_on_fail, split_cmd} from "./Process.ts";
 import {rearrange} from "./Array.ts";
 import {
@@ -16,10 +13,9 @@ import * as path from "https://deno.land/std/path/mod.ts";
 import {dirname} from "https://deno.land/std/path/mod.ts";
 export {dirname} from "https://deno.land/std/path/mod.ts";
 import { bold, green, yellow, blue } from "https://deno.land/std/fmt/colors.ts";
-import { readerFromStreamReader, copy } from "https://deno.land/std/streams/conversion.ts"
+import { readerFromStreamReader, copy as copyIO } from "https://deno.land/std/streams/conversion.ts"
 import {
   emptyDirSync,
-  ensureDir,
   ensureDirSync,
   copySync,
   walkSync
@@ -961,17 +957,17 @@ export async function template(
 ) {
   let tmpl_contents = "";
   if (tmpl.trim().toLowerCase().indexOf("http") === 0) {
-    tmpl_contents = await fetch(tmpl).then(x => x.text());
+    tmpl_contents = await fetch_text(tmpl);
   } else {
-    tmpl_contents = await Deno.readTextFile(tmpl);
+    tmpl_contents = read_text_file(tmpl);
   }
 
   const info = path.parse(new_file);
   const {dir}  = info;
 
   try {
-    await Deno.stat(new_file);
-    const contents = await Deno.readTextFile(new_file);
+    lstat(new_file);
+    const contents = read_text_file(new_file);
     if (contents.trim().length > 0) {
       console.error(`=== File already exists: ${new_file}`);
       return contents;
@@ -980,12 +976,12 @@ export async function template(
     // continue
   }
 
-  await ensureDir(dir);
+  mk(path.join(dir, '/'));
 
-  await Deno.writeTextFile(new_file, compile_template(tmpl_contents, values));
-  const new_contents = await Deno.readTextFile(new_file);
+  write_text_file(new_file, compile_template(tmpl_contents, values));
+  const new_contents = read_text_file(new_file);
   if ((new_contents || "").indexOf("#!") === 0) {
-    await Deno.chmod(new_file, 0o700);
+    chmod(new_file, 0o700);
   }
   console.log(`=== Wrote: ${new_file}`);
 } // function
@@ -1011,12 +1007,36 @@ export function cwd() {
 } // export function
 
 export function move(a: string, b: string) {
-  return rename(a, b);
+  if (!is_exist(a))
+    throw new Error(`move(${inspect(a)}, ${inspect(b)}): ${inspect(a)} does not exist.`);
+
+  if (is_dir(a) && !is_exist(b)) {
+    mk(dirname(b) + '/')
+    return Deno.renameSync(a, b);
+  }
+
+  if (!is_exist(b)) {
+    if (is_file(a)) {
+      if (b.at(-1) === '/') {
+        mk(b);
+        return Deno.renameSync(a, join(b, basename(a)))
+      }
+      mk(dirname(b) + '/')
+    }
+    return Deno.renameSync(a, b);
+  }
+
+  if (is_dir(b))
+    return Deno.renameSync(a, join(b, basename(a)));
+
+  throw new Error(`move(${inspect(a)}, ${inspect(b)}): ${inspect(b)} already exists.`);
 } // export function
 
 export function rename(a: string, b: string) {
   let bstat = null;
   try {
+    // It's ok if overwrite a broke symbolic link.
+    // That is why I used lstat instead of stat here:
     bstat = lstat(b);
   } catch (e) {
     // ignore
@@ -1036,23 +1056,22 @@ export function lstat(f: string) {
   return Deno.lstatSync(f);
 } // export function
 
-export function exists(x: string) {
-  try {
-    return !!lstat(x);
-  } catch (e) {
-    return false;
-  }
+export function real_path(p: string) {
+  return Deno.realPathSync(p);
 } // export function
 
 export function mk_symbolic_link(src: string, dest: string) {
   return Deno.symlinkSync(src, dest);
 } // export function
 
-export function read_text_file(f: string, content: string) {
+export function read_text_file(f: string) {
   return Deno.readTextFileSync(f);
 } // export function
 
 export function write_text_file(f: string, content: string) {
+  mk(f);
+  if (content === "")
+    return content;
   return Deno.writeTextFileSync(f, content);
 } // export function
 
@@ -1064,103 +1083,148 @@ export async function fetch_json(u: string | Request) {
   return fetch(u).then(x => x.json());
 } // export async function
 
-export function copy_file(src: string, dest: string) {
-  const stat_src = Deno.lstatSync(src);
-  if (!stat_src.isFile) {
-    throw new Error(`${Deno.inspect(src)} is not a file.`);
-  }
-  try {
-    const stat_dest = Deno.lstatSync(dest);
-    if (stat_dest.isDirectory && stat_src.isFile) {
+export function copy(src: string, dest: string) {
+  if (is_dir(src)) {
+    if (is_exist(dest)) {
+      if (!is_dir(dest))
+        throw new Error(`copy(${inspect(src)}, ${inspect(dest)}): destination exists, but is not a directory`);
       dest = path.join(dest, path.basename(src))
     }
-  } catch (e) {
-    // ignored
-  }
-  return Deno.copyFileSync(src, dest);
-} // export function
 
-export function copy_dir(src: string, dest: string) {
-  if (!is_directory(src))
-    throw new Error(`${Deno.inspect(src)} is not a directory.`);
+    return copySync(src, dest);
+  } // if is_dir
 
-  if (is_directory(dest)) {
+  if (is_exist(dest) && is_dir(dest)) {
     dest = path.join(dest, path.basename(src))
   }
+
   return copySync(src, dest);
 } // export function
+
 
 /*
   * Copy files in a directory into another.
   * Uses copy_dir(a,b) if destination does not exist.
 */
-export function copy_files_of(src: string, dest: string) {
-  if (!exists(dest))
-    return copy_dir(src, dest);
+export function copy_contents_of(src: string, dest: string) {
+  if (!is_exist(src))
+    throw new Error(`${src} does not exist`);
 
-  if (!is_directory(src)) {
-    throw new Error(`${Deno.inspect(src)} is not a directory.`);
+  if (is_exist(real_path(src)) && !is_exist(dest)) {
+    mk(dirname(dest) + '/')
+    return copy(real_path(src), dest);
   }
 
-  lstat(dest);
+  if (!is_dir(real_path(src)))
+    throw new Error(`${inspect(src)} is not a directory.`);
 
-  const contents = files_of(src, Infinity);
-
-  for (const f of contents) {
-    const f_dir = path.dirname(f);
+  for (const f of files_of(real_path(src), Infinity)) {
+    const f_dir = dirname(f);
     if (f_dir !== ".") {
-      const new_f_dir = path.join(dest, f_dir);
-      mk_dir(new_f_dir)
-      copy_file(path.join(src, f), new_f_dir);
+      const new_f_dir = join(dest, f_dir, '/');
+      mk(new_f_dir)
+      copy(join(src, f), new_f_dir);
     } else {
-      copy_file(path.join(src,f), dest);
+      copy(join(src, f), dest);
     }
   } // for
 
   return true;
 } // export function
 
-export function cp_rf(src: string, dest: string) {
-  return copySync(src, dest, {overwrite: true});
+export function ext(f: string = '.'): string {
+  return path.extname(f);
 } // export function
 
-export function files(maxDepth: number = 1): string[] {
-  const i = walkSync(".", {maxDepth, includeDirs: false, followSymlinks: false});
-  return [...i].map(x => x.path);
+export function join(...s: string[]): string {
+  return path.join(...s);
 } // export function
 
-export function files_of(d_path: string, maxDepth: number = 1) {
-  return cd(d_path, () => files(maxDepth));
+export function basename(f: string): string {
+  return path.basename(f);
 } // export function
 
-export function mk_file(file_path: string) {
-  try {
-    Deno.lstatSync(file_path);
-    return true;
-  } catch (e) {
-    const dir = path.dirname(file_path);
-    if (dir !== ".")
-      mk_dir(dir);
-    Deno.writeTextFileSync(file_path, "");
+export function dirs_of(d: string = '.', maxDepth: number = 1): string[] {
+  if (!is_dir(d))
+    throw new Error(`dirs_of(${inspect(d)}): ${inspect(d)} is not a directory`);
+
+  return cd(d, () => {
+    const i = walkSync(
+      '.',
+      {maxDepth, includeFiles: false, includeDirs: true, followSymlinks: false}
+    );
+    // return [...i].slice(1).map(x => x.path);
+    return [...i].map(x => x.path).filter(x => x !== '.');
+  });
+} // export function
+
+export function files_of(d: string = '.', maxDepth: number = 1): string[] {
+  return cd(d, () => {
+    const i = walkSync(
+      '.',
+      {maxDepth, includeFiles: true, includeDirs: false, followSymlinks: false}
+    );
+    return [...i].map(x => x.path);
+  })
+} // export function
+
+export async function a_mk<T>(d: string, f: () => Promise<T>): Promise<T> {
+  if (d.at(-1) !== '/')
+    throw new Error(`mk(${inspect(d)}): missing / in ${inspect(d)}`);
+  mk(d)
+  return a_cd(d, f);
+} // export async function
+
+export function mk(file_path: string, f?: Function) {
+  if (f) {
+    if (file_path.at(-1) !== '/')
+      throw new Error(`mk(${inspect(file_path)}): missing / in ${inspect(file_path)}`);
+    mk(file_path);
+    return cd(file_path, f);
   }
+
+  if (file_path === '.' || file_path === './')
+    return true;
+
+  if (is_exist(file_path))
+    return true;
+
+  if (file_path.at(-1) === '/') {
+    return ensureDirSync(file_path);
+  }
+
+  const dir = path.dirname(file_path);
+  if (dir !== ".")
+    mk(`${dir}/`);
+
+  Deno.writeTextFileSync(file_path, "");
   return false;
 } // export function
 
-export function mk_dir(s: string) {
-  return ensureDirSync(s);
+export function remove(f: string, throwable: 'throw' | 'ignore' = 'throw') {
+  if (!is_exist(f)) {
+    if (throwable === 'throw')
+      throw new Error(`${inspect(f)} does not exist.`)
+    return false;
+  }
+
+  if (is_dir(f))
+    return Deno.removeSync(f, {recursive: true});
+  else
+    return Deno.removeSync(f, {recursive: false});
 } // export function
 
-export function rm_rf(file_or_dir: string) {
-  return Deno.removeSync(file_or_dir, {recursive: true});
+export function empty(s?: string) {
+  if (typeof s === 'undefined') {
+    return emptyDirSync(cwd());
+  }
+  mk(s)
+  if (s.at(-1) === '/')
+    return emptyDirSync(s);
+  return Deno.writeTextFileSync(s, "");
 } // export function
 
-export function empty_dir(s?: string) {
-  if (!s)
-    s = Deno.cwd();
-  return emptyDirSync(s);
-} // export function
-
-export function cd(dir: string, f?: () => any) {
+export function cd(dir: string, f?: Function) {
   if (!f)
     return Deno.chdir(dir);
 
@@ -1179,37 +1243,17 @@ export async function a_cd<T>(dir: string, f: () => Promise<T>): Promise<T> {
   return result;
 } // export async function
 
-export function tmp(dir: string, f: () => any) {
-  const new_path = path.join("/tmp", dir);
-  mk_dir(new_path);
-  return cd(new_path, f);
+export function is_exist(raw: string) {
+  try {
+    return !!stat(raw);
+  } catch (e) {
+    return false;
+  }
 } // export function
-
-export async function a_tmp<T>(dir: string, f: () => Promise<T>): Promise<T> {
-  const new_path = path.join("/tmp", dir);
-  mk_dir(new_path);
-  return await a_cd(new_path, f);
-} // export async function
-
-export function local_tmp(dir: string, f: () => any) {
-  const new_path = path.join("tmp", dir);
-  mk_dir(new_path);
-  return cd(new_path, f);
-} // export function
-
-export async function a_local_tmp<T>(dir: string, f: () => Promise<T>): Promise<T> {
-  const new_path = path.join("tmp", dir);
-  mk_dir(new_path);
-  return await a_cd(new_path, f);
-} // export async function
 
 export function is_dir(raw: string) {
-  return is_directory(raw);
-} // export function
-
-export function is_directory(raw: string) {
   try {
-    return Deno.lstatSync(raw).isDirectory;
+    return stat(raw).isDirectory;
   } catch (err) {
     return false;
   }
@@ -1217,7 +1261,15 @@ export function is_directory(raw: string) {
 
 export function is_file(raw: string) {
   try {
-    return Deno.lstatSync(raw).isFile;
+    return stat(raw).isFile;
+  } catch (err) {
+    return false;
+  }
+} // export function
+
+export function is_symbolic_link(raw: string) {
+  try {
+    return stat(raw).isSymlink;
   } catch (err) {
     return false;
   }
@@ -1343,7 +1395,7 @@ export async function download(url: string, file?: string) {
       let f = null;
       try {
         f = await Deno.open(file, {create: true, write: true});
-        await copy(r, f);
+        await copyIO(r, f);
       } catch (e) {
         if (f)
           f.close();
@@ -1357,19 +1409,4 @@ export async function download(url: string, file?: string) {
 } // export async function
 
 
-// class Directory {
-//   path: string;
-//
-//   constructor(d_path: string) {
-//     const stat = Deno.lstatSync(d_path);
-//     if (!stat.isDirectory) {
-//       throw new Error(`Not a directory: ${Deno.inspect(d_path)}`);
-//     }
-//     this.path = d_path;
-//   }
-//
-//   files(maxDepth: number = 5) {
-//     return cd(this.path, () => files(maxDepth));
-//   } // methd
-// } // class
 
