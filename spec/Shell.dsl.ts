@@ -77,6 +77,46 @@ it("returns the value of the function", async () => {
 });
 
 // =============================================================================
+describe("mk execute");
+// =============================================================================
+
+it("executes commands in specified directory", () => {
+  const contents = Date.now().toString();
+  mk("tmp/a/b/", () => {
+    Deno.writeTextFileSync("a.txt", contents);
+  });
+  const actual = read_text_file("tmp/a/b/a.txt");
+  equals(actual, contents);
+});
+
+it("returns the value of the function", async () => {
+  const actual = mk("a/b/", () => {
+    return 'hello a/b';
+  });
+  equals(actual, "hello a/b");
+});
+
+// =============================================================================
+describe("a_mk");
+// =============================================================================
+
+it("executes commands in ./tmp", async () => {
+  const contents = Date.now().toString();
+  await a_mk("a/b/", async () => {
+    return await Deno.writeTextFile("c.txt", contents);
+  });
+  const actual = read_text_file("a/b/c.txt");
+  equals(actual, contents);
+});
+
+it("returns the value of the function", async () => {
+  const actual = await a_mk("a/b/c/", async () => {
+    return shell_string(`echo`, 'hello')
+  });
+  equals(actual, "hello");
+});
+
+// =============================================================================
 describe("rename");
 // =============================================================================
 
