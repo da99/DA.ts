@@ -95,13 +95,18 @@ export async function shell_lines(
   return lines(str);
 } // export async
 
-export async function fd(args: string | string[]): Promise<Lines> {
-  return await shell_lines("fd", args);
-} // export async
+export function create_shell_cmd(s: string) {
+  return async function (args: string | string[]): Promise<Lines> {
+    return await shell_lines(s, args);
+  } // export async
+} // export async function
 
-export async function find(args: string | string[]): Promise<Lines> {
-  return await shell_lines("find", args);
-} // export async
+export const fd     = create_shell_cmd('fd');
+export const deno   = create_shell_cmd('deno');
+export const npm    = create_shell_cmd('npm');
+export const npx    = create_shell_cmd('npx');
+export const find   = create_shell_cmd('find');
+export const shards = create_shell_cmd('shards');
 
 export function lines(x: string | string[]) {
   return new Lines(x);
