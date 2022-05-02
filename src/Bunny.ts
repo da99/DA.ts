@@ -1,6 +1,6 @@
 
 // import * as path from "https://deno.land/std/path/mod.ts";
-import {meta_url, match, not_found, inspect, IS_VERBOSE} from "../src/Shell.ts";
+import {meta_url, match, not_found, inspect, IS_VERBOSE, base, cwd} from "../src/Shell.ts";
 import {run} from "../src/Process.ts";
 import { green, red, yellow, bold } from "https://deno.land/std/fmt/colors.ts";
 import {content_type, human_bytes, MB, sort_by_key, count} from "../src/Function.ts";
@@ -17,8 +17,6 @@ import {
 
 export type CONFIG_OPTIONS    = "PROJECT_NAME" | "BUNNY_DIR" | "BUNNY_URL" | "BUNNY_KEY" | "VERBOSE";
 export const FILE_TS          = ".FILES.ts";
-export const GIT_PROJECT_NAME = (await shell_lines("git", "remote get-url origin", false))
-  .default_non_empty_string(null, (x: string) => x.replace(/\.git$/, '').split('/').pop());
 
 export interface Bunny_Response {
   HttpCode: 200 | 201 | 400 | 404;
@@ -84,7 +82,7 @@ export async function project_name() {
 export function config(k: "UPLOAD_PATH" | CONFIG_OPTIONS): string {
   switch (k) {
     case "PROJECT_NAME": {
-      const raw = (Deno.env.get("PROJECT_NAME") || GIT_PROJECT_NAME || "").trim()
+      const raw = (Deno.env.get("PROJECT_NAME") || base(cwd())).trim()
       if (raw.length === 0)
         throw new Error(`PROJECT_NAME could not be found.`)
       return raw;
@@ -340,3 +338,7 @@ export function verbose_log_remote_file(bf: Bunny_File) {
     } // for
 } // export function
 
+export async function git_project_name() {
+  return (await shell_lines("git", "remote get-url origin", false))
+  .default_non_empty_string(null, (x: string) => x.replace(/\.git$/, '').split('/').pop());
+} // export async function
