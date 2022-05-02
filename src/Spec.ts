@@ -160,7 +160,7 @@ function update_caller(x: undefined | string) {
 /*
   * Prepends "tmp/" to the destination.
 */
-export function ch_test_dir(destination: string = "test_run") {
+export function change_directory(destination: string = "test_run") {
   update_caller(caller());
   TEST_DIR = path.join("tmp", destination);
   return TEST_DIR;

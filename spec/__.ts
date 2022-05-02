@@ -1,12 +1,12 @@
 
 import {finish} from "../src/Spec.ts";
-import {mk} from "../src/Shell.ts";
+import {create_dir} from "../src/Shell.ts";
 
 // const this_file      = (new URL(import.meta.url)).pathname;
 // const this_file_name = (path.relative(path.dirname(this_file), this_file));
 // const dir            = path.basename(path.dirname(this_file));
 
-mk("tmp/spec/");
+create_dir("tmp/spec/");
 
 const cmd = Deno.args[0] || "full";
 
@@ -19,7 +19,7 @@ import "./String.ts";
 import "./Text_File.ts";
 import "./File_Manifest.ts";
 import "./Shell.ts";
-import "./Shell.dsl.ts";
+import "./Shell.helpers.ts";
 import "./Build_WWW.ts";
 
 if (cmd === "full") {  }

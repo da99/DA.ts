@@ -1,10 +1,10 @@
 
-import { describe, it, equals, ch_test_dir } from "../src/Spec.ts";
-import { mk} from "../src/Shell.ts";
+import { describe, it, equals, change_directory } from "../src/Spec.ts";
+import { create_file as c_f} from "../src/Shell.ts";
 import { raw_www_files } from "../src/Build_WWW.ts";
 
 // =============================================================================
-ch_test_dir("build_www");
+change_directory("build_www");
 // =============================================================================
 
 // =============================================================================
@@ -12,9 +12,9 @@ describe("raw_www_files");
 // =============================================================================
 
 it("lists files deeply nested", () => {
-  mk("a/b/c/home.njk");
-  mk("a/b/c/home.ts");
-  mk("a/b/c/home.less");
+  c_f("a/b/c/home.njk");
+  c_f("a/b/c/home.ts");
+  c_f("a/b/c/home.less");
 
   equals(
     raw_www_files().sort(),

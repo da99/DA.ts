@@ -1,12 +1,13 @@
 
-import {meta_url, about, match, values, not_found} from "../src/Shell.ts";
-import {Text_File, find_parent_file} from "../src/Shell.ts";
+import {
+  meta_url, about, is_empty, create_file, write_file, read_file,
+  create_dir
+} from "../src/Shell.ts";
 import {split_whitespace, insert_after_line_contains} from "../src/String.ts";
-
-import {exists, ensureDirSync} from "https://deno.land/std/fs/mod.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 
 meta_url(import.meta.url);
+
 const _this    = about();
 const in_da_ts = path.parse(Deno.cwd()).base === 'da.ts';
 const da_dir   = path.dirname(path.dirname((new URL(import.meta.url)).pathname));
@@ -24,26 +25,22 @@ export async function create_from_template(tmpl_name: string, fpath: string) {
   const name = info.name;
   const ext  = info.ext;
 
-  const full_path = path.resolve(path.join(Deno.cwd(), fpath));
-
   const vals: Record<string, string> = {
     Name: name,
     name,
     DA_PATH: in_da_ts ? relative_to_da(fpath) : "https://raw.githubusercontent.com/da99/da.ts/main"
   };
-  const file = new Text_File(fpath);
 
-  ensureDirSync(dir);
+  create_dir(dir);
 
-  if (file.not_empty) {
-    console.error(`=== File already exists: ${file.filename}`);
+  if (!is_empty(fpath)) {
+    console.error(`=== File already exists: ${fpath}`);
   } else {
-    file.write(compile_template(tmpl_name, vals));
-    const update_file = new Text_File(fpath);
-    if ((update_file.text || "").indexOf("#!") === 0) {
-      await Deno.chmod(fpath, 0o700);
+    write_file(fpath, compile_template(tmpl_name, vals));
+    if (read_file(fpath).indexOf("#!") === 0) {
+      Deno.chmodSync(fpath, 0o700);
     }
-    console.log(`=== Wrote: ${file.filename}`);
+    console.log(`=== Wrote: ${fpath}`);
   } // if
 } // function
 

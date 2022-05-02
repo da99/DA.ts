@@ -959,7 +959,7 @@ export async function template(
   if (tmpl.trim().toLowerCase().indexOf("http") === 0) {
     tmpl_contents = await fetch_text(tmpl);
   } else {
-    tmpl_contents = read_text_file(tmpl);
+    tmpl_contents = read_file(tmpl);
   }
 
   const info = path.parse(new_file);
@@ -967,7 +967,7 @@ export async function template(
 
   try {
     lstat(new_file);
-    const contents = read_text_file(new_file);
+    const contents = read_file(new_file);
     if (contents.trim().length > 0) {
       console.error(`=== File already exists: ${new_file}`);
       return contents;
@@ -976,10 +976,10 @@ export async function template(
     // continue
   }
 
-  mk(path.join(dir, '/'));
+  create_dir(dir);
 
-  write_text_file(new_file, compile_template(tmpl_contents, values));
-  const new_contents = read_text_file(new_file);
+  write_file(new_file, compile_template(tmpl_contents, values));
+  const new_contents = read_file(new_file);
   if ((new_contents || "").indexOf("#!") === 0) {
     chmod(new_file, 0o700);
   }
@@ -1020,65 +1020,84 @@ export function dir(s: string, opt: '.' | '/' | 'cwd' | 'cwd/' = '.') {
   }
 } // export function
 
-function human_fs_arg(x: string): string {
-  const a = (x.at(-1) === '/') ? "dir" : "file";
-  const b = (is_exist(x)) ? '' : '?';
-  const si = x.indexOf('/');
-  const s = (si > -1 && si < x.length - 1) ? '/' : '';
-  return `${s}${a}${b}`;
-} // function
+/*
+  * Moves a file into another directory:
+  * move_dir("/file.txt", "some/other/dir") => some/other/dir/file.txt
+*/
+export function move_file(a: string, b: string) {
+  if (!is_exist(a))
+    throw new Error(`move_file(${inspect(a)}, ${inspect(b)}): ${inspect(a)} does not exist.`);
 
-function human_fs_args(a: string, b: string): string {
-  return [a,b].map(human_fs_arg).join(' -> ');
-} // function
+  if (!is_exist(b))
+    throw new Error(`move_file(${inspect(a)}, ${inspect(b)}): ${inspect(b)} does not exist.`);
 
-export function move(a: string, b: string) {
+  if (!is_file(a))
+    throw new Error(`move_file(${inspect(a)}, ${inspect(b)}): ${inspect(a)} must be a file.`);
+
+  if (!is_dir(b))
+    throw new Error(`move_file(${inspect(a)}, ${inspect(b)}): ${inspect(b)} must be a directory.`);
+
+  return Deno.renameSync(a, join(b, base(a)));
+} // export function
+
+/*
+  * Moves a directory into another one:
+  * move_dir("/my_dir", "some/other/dir") => some/other/dir/my_dir
+*/
+export function move_dir(a: string, b: string) {
   if (!is_exist(a))
     throw new Error(`move(${inspect(a)}, ${inspect(b)}): ${inspect(a)} does not exist.`);
+  if (!is_exist(b))
+    throw new Error(`move(${inspect(a)}, ${inspect(b)}): ${inspect(b)} does not exist.`);
+  if (!is_dir(a))
+    throw new Error(`move(${inspect(a)}, ${inspect(b)}): ${inspect(a)} is not a directory.`);
+  if (!is_dir(b))
+    throw new Error(`move(${inspect(a)}, ${inspect(b)}): ${inspect(b)} is not a directory.`);
 
-  let action = human_fs_args(a,b);
+  const new_path = join(b, base(a));
+  Deno.renameSync(a, new_path);
+  return new_path;
+} // export function
 
-  switch (action) {
-    case "/file -> /dir":
-    case "/file -> dir":
-    case "file -> /dir":
-    case "file -> dir": {
-      return Deno.renameSync(a, join(b, base(a)))
-    }
-
-    case "/dir -> dir":
-    case "/dir -> /dir":
-    case "dir -> /dir":
-    case "dir -> dir": {
-      return Deno.renameSync(a, join(b, base(a)))
-    }
-  } // switch
-
-
+/*
+  * Rename a file:
+  *   rename('dir/my_file.txt', 'new.txt') => 'dir/new.txt'
+*/
+export function rename_file(a: string, b: string) {
   if (!is_exist(a))
-    throw new Error(`move(${a}, ${b}): ${inspect(a)} does not exist.`);
-  if (action.match(/file\??$/))
-    throw new Error(`move(${a}, ${b}): 2nd argument must be a path to a directory.`);
-  if (action.match(/dir\?$/))
-      throw new Error(`move(${a}, ${b}): ${inspect(b)} does not exist.`);
-  throw new Error(`Invalid arguments for move(${a}, ${b}): ${action}`);
+    throw new Error(`rename_file(${inspect(a)}, ${inspect(b)}): ${inspect(a)} does not exist.`);
+  if (!is_file(a))
+    throw new Error(`rename_file(${inspect(a)}, ${inspect(b)}): ${inspect(a)} must be a file.`);
+  if (is_path(b))
+    throw new Error(`rename_file(${inspect(a)}, ${inspect(b)}): ${inspect(b)} may not be a path.`);
+
+  return _rename(a, b);
 } // export function
 
-export function rename(a: string, b: string) {
-  let bstat = null;
-  try {
-    // It's ok if overwrite a broke symbolic link.
-    // That is why I used lstat instead of stat here:
-    bstat = lstat(b);
-  } catch (e) {
-    // ignore
-  }
-  if (bstat)
-    throw new Error(`rename(${Deno.inspect(a)}, ${Deno.inspect(b)}). Destination already exists.`);
-  if (dir(b) != ".")
-    throw new Error(`Invalid destination for rename: ${Deno.inspect(b)}. Try using 'move'.`)
-  return Deno.renameSync(a, b);
+/*
+  * Rename a directory:
+  *   rename('a/b/dir', 'c')               => 'a/b/c'
+*/
+export function rename_dir(a: string, b: string) {
+  if (!is_exist(a))
+    throw new Error(`rename_dir(${inspect(a)}, ${inspect(b)}): ${inspect(a)} does not exist.`);
+  if (!is_dir(a))
+    throw new Error(`rename_dir(${inspect(a)}, ${inspect(b)}): ${inspect(a)} must be a directory.`);
+  if (is_path(b))
+    throw new Error(`rename_dir(${inspect(a)}, ${inspect(b)}): ${inspect(b)} may not be a path.`);
+
+  return _rename(a, b);
 } // export function
+
+function _rename(a: string, b: string): string {
+  return cd(dir(a), () => {
+    const new_path = join(cwd(), b);
+    if (is_exist(new_path))
+      throw new Error(`${Deno.inspect(new_path)} already exists.`);
+    Deno.renameSync(base(a), b);
+    return new_path;
+  });
+} // function
 
 export function stat(f: string) {
   return Deno.statSync(f);
@@ -1092,18 +1111,16 @@ export function real_path(p: string) {
   return Deno.realPathSync(p);
 } // export function
 
-export function mk_symbolic_link(src: string, dest: string) {
+export function create_symbolic_link(src: string, dest: string) {
   return Deno.symlinkSync(src, dest);
 } // export function
 
-export function read_text_file(f: string) {
+export function read_file(f: string) {
   return Deno.readTextFileSync(f);
 } // export function
 
-export function write_text_file(f: string, content: string) {
-  mk(f);
-  if (content === "")
-    return content;
+export function write_file(f: string, content: string) {
+  create_dir(dir(f));
   return Deno.writeTextFileSync(f, content);
 } // export function
 
@@ -1115,53 +1132,68 @@ export async function fetch_json(u: string | Request) {
   return fetch(u).then(x => x.json());
 } // export async function
 
-export function copy(src: string, dest: string) {
-  if (is_dir(src)) {
-    if (is_exist(dest)) {
-      if (!is_dir(dest))
-        throw new Error(`copy(${inspect(src)}, ${inspect(dest)}): destination exists, but is not a directory`);
-      dest = path.join(dest, path.basename(src))
-    }
+export function copy_file(f: string, dest: string): string {
+  if (!is_exist(f))
+    throw new Error(`copy_file(${inspect(f)}, ${inspect(dest)}): ${inspect(f)} does not exist.`);
+  if (!is_exist(dest))
+    throw new Error(`copy_file(${inspect(f)}, ${inspect(dest)}): ${inspect(dest)} does not exist.`);
+  if (!is_file(f))
+    throw new Error(`copy_file(${inspect(f)}, ${inspect(dest)}): ${inspect(f)} must be a file.`);
+  if (!is_dir(dest))
+    throw new Error(`copy_file(${inspect(f)}, ${inspect(dest)}): ${inspect(dest)} must be a directory.`);
 
-    return copySync(src, dest);
-  } // if is_dir
+  const full_dest = path.join(dest, path.basename(f))
 
-  if (is_exist(dest) && is_dir(dest)) {
-    dest = path.join(dest, path.basename(src))
-  }
+  copySync(f, full_dest);
+  return full_dest;
+} // export function
 
-  return copySync(src, dest);
+export function copy_dir(d: string, dest: string): string {
+  if (!is_exist(d))
+    throw new Error(`copy_dir(${inspect(d)}, ${inspect(dest)}): ${inspect(d)} does not exist.`);
+  if (!is_exist(dest))
+    throw new Error(`copy_dir(${inspect(d)}, ${inspect(dest)}): ${inspect(dest)} does not exist.`);
+  if (!is_dir(d))
+    throw new Error(`copy_dir(${inspect(d)}, ${inspect(dest)}): ${inspect(d)} must be a directory.`);
+  if (!is_dir(dest))
+    throw new Error(`copy_dir(${inspect(d)}, ${inspect(dest)}): ${inspect(dest)} must be a directory.`);
+
+  const full_dest = path.join(dest, path.basename(d))
+
+  copySync(d, full_dest);
+  return full_dest;
 } // export function
 
 
 /*
   * Copy files in a directory into another.
-  * Uses copy_dir(a,b) if destination does not exist.
+  * copy_list('a/b', '/dir') => /dir has files of a/b
 */
-export function copy_contents_of(src: string, dest: string) {
-  if (!is_exist(src))
-    throw new Error(`${src} does not exist`);
+export function copy_list(d: string, dest: string) {
+  if (!is_exist(d))
+    throw new Error(`copy_list(${inspect(d)}, ${inspect(dest)}): ${inspect(d)} does not exist.`);
+  if (!is_exist(dest))
+    throw new Error(`copy_list(${inspect(d)}, ${inspect(dest)}): ${inspect(dest)} does not exist.`);
+  if (!is_dir(d))
+    throw new Error(`copy_list(${inspect(d)}, ${inspect(dest)}): ${inspect(d)} must be a directory.`);
+  if (!is_dir(dest))
+    throw new Error(`copy_list(${inspect(d)}, ${inspect(dest)}): ${inspect(dest)} must be a directory.`);
 
-  if (is_exist(real_path(src)) && !is_exist(dest)) {
-    mk(dir(dest, '/'))
-    return copy(real_path(src), dest);
-  }
 
-  if (!is_dir(real_path(src)))
-    throw new Error(`${inspect(src)} is not a directory.`);
+  const files = list_files(real_path(d), Infinity);
 
-  for (const f of files_of(real_path(src), Infinity)) {
+  for (const f of files) {
     const f_dir = dir(f);
-    if (f_dir !== ".") {
-      const new_f_dir = join(dest, f_dir, '/');
-      mk(new_f_dir)
-      copy(join(src, f), new_f_dir);
+    if (f_dir === ".") {
+      copy_file(join(d, f), dest);
     } else {
-      copy(join(src, f), dest);
+      const new_f_dir = join(dest, f_dir);
+      create_dir(new_f_dir)
+      copy_file(join(d, f), new_f_dir);
     }
   } // for
 
-  return true;
+  return files;
 } // export function
 
 export function ext(f: string = '.'): string {
@@ -1172,7 +1204,7 @@ export function base(f: string): string {
   return path.basename(f);
 } // export function
 
-export function dirs_of(d: string = '.', maxDepth: number = 1): string[] {
+export function list_dirs(d: string = '.', maxDepth: number = 1): string[] {
   if (!is_dir(d))
     throw new Error(`dirs_of(${inspect(d)}): ${inspect(d)} is not a directory`);
 
@@ -1186,7 +1218,17 @@ export function dirs_of(d: string = '.', maxDepth: number = 1): string[] {
   });
 } // export function
 
-export function files_of(d: string = '.', maxDepth: number = 1): string[] {
+export function list(d: string = '.', maxDepth: number = 1): string[] {
+  return cd(d, () => {
+    const i = walkSync(
+      '.',
+      {maxDepth, includeFiles: true, includeDirs: true, followSymlinks: false}
+    );
+    return [...i].map(x => x.path).filter(x => x !== '.');
+  })
+} // export function
+
+export function list_files(d: string = '.', maxDepth: number = 1): string[] {
   return cd(d, () => {
     const i = walkSync(
       '.',
@@ -1196,65 +1238,80 @@ export function files_of(d: string = '.', maxDepth: number = 1): string[] {
   })
 } // export function
 
-export async function a_mk<T>(d: string, f: () => Promise<T>): Promise<T> {
-  if (d.at(-1) !== '/')
-    throw new Error(`mk(${inspect(d)}): missing / in ${inspect(d)}`);
-  mk(d)
-  return a_cd(d, f);
-} // export async function
+export function create_dir(d: string): string {
+  if (is_current_dir(d))
+    return d;
 
-export function mk(file_path: string, f?: Function) {
-  if (f) {
-    if (file_path.at(-1) !== '/')
-      throw new Error(`mk(${inspect(file_path)}): missing / in ${inspect(file_path)}`);
-    mk(file_path);
-    return cd(file_path, f);
+  if (is_exist(d)) {
+    if (!is_dir(d))
+      throw new Error(`create_dir(${d}): Not a directory: ${d}`)
+    return d;
   }
 
-  if (file_path === '.' || file_path === './')
-    return true;
-
-  if (is_exist(file_path))
-    return true;
-
-  if (file_path.at(-1) === '/') {
-    return ensureDirSync(file_path);
-  }
-
-  const d = dir(file_path);
-  if (d !== ".")
-    mk(`${d}/`);
-
-  Deno.writeTextFileSync(file_path, "");
-  return false;
+  ensureDirSync(d);
+  return d;
 } // export function
 
-export function remove(f: string, throwable: 'throw' | 'ignore' = 'throw') {
-  if (!is_exist(f)) {
+export function create_file(f: string): string {
+  if (is_exist(f))
+    return f;
+
+  const d = dir(f);
+  if (!is_current_dir(d))
+    create_dir(d);
+
+  Deno.writeTextFileSync(f, '');
+  return f;
+} // export function
+
+export function delete_symbolic_link(x: string, throwable: 'throw' | 'ignore' = 'throw'): boolean {
+  return delete_file(x, throwable);
+} // export function
+
+export function delete_file(x: string, throwable: 'throw' | 'ignore' = 'throw'): boolean {
+  if (!is_exist(x)) {
     if (throwable === 'throw')
-      throw new Error(`${inspect(f)} does not exist.`)
+      throw new Error(`${inspect(x)} does not exist.`)
+    return false;
+  }
+  Deno.removeSync(x, {recursive: false});
+  return true;
+} // export function
+
+export function delete_dir(x: string, throwable: 'throw' | 'ignore' = 'throw'): boolean {
+  if (!is_exist(x)) {
+    if (throwable === 'throw')
+      throw new Error(`${inspect(x)} does not exist.`)
     return false;
   }
 
-  if (is_dir(f))
-    return Deno.removeSync(f, {recursive: true});
-  else
-    return Deno.removeSync(f, {recursive: false});
+  Deno.removeSync(x, {recursive: true});
+  return true;
 } // export function
 
-export function empty(s?: string) {
-  if (typeof s === 'undefined') {
-    return emptyDirSync(cwd());
-  }
-  mk(s)
-  if (s.at(-1) === '/')
-    return emptyDirSync(s);
-  return Deno.writeTextFileSync(s, "");
+export function empty_file(s: string): string {
+  create_file(s);
+  Deno.writeTextFileSync(s, "");
+  return s;
+} // export function
+
+export function empty_dir(s?: string): string {
+  if (!s)
+    s = '.';
+  if (!is_current_dir(s))
+    create_dir(s)
+  if (is_current_dir(s))
+    emptyDirSync(cwd());
+  else
+    emptyDirSync(s);
+  return s;
 } // export function
 
 export function cd(dir: string, f?: Function) {
-  if (!f)
-    return Deno.chdir(dir);
+  if (!f) {
+    Deno.chdir(dir);
+    return dir;
+  }
 
   const original = Deno.cwd();
   Deno.chdir(dir);
@@ -1271,12 +1328,27 @@ export async function a_cd<T>(dir: string, f: () => Promise<T>): Promise<T> {
   return result;
 } // export async function
 
-export function is_exist(raw: string) {
+export function is_path(s: string): boolean {
+  const first = s.indexOf('/');
+  return first > -1 && first !== (s.length - 1);
+} // export function
+
+export function is_exist(raw: string): boolean {
   try {
     return !!stat(raw);
   } catch (e) {
     return false;
   }
+} // export function
+
+export function is_empty(x: string): boolean {
+  if (!is_exist(x))
+    return true;
+
+  if (is_dir(x))
+    return list(x, 1).length === 0;
+
+  return lstat(x).size === 0;
 } // export function
 
 export function is_dir(raw: string) {
@@ -1285,6 +1357,10 @@ export function is_dir(raw: string) {
   } catch (err) {
     return false;
   }
+} // export function
+
+export function is_current_dir(raw: string) {
+  return raw === '.' || raw === './';
 } // export function
 
 export function is_file(raw: string) {
@@ -1438,3 +1514,15 @@ export async function download(url: string, file?: string) {
 
 
 
+
+// function human_fs_arg(x: string): string {
+//   const a = (x.at(-1) === '/') ? "dir" : "file";
+//   const b = (is_exist(x)) ? '' : '?';
+//   const si = x.indexOf('/');
+//   const s = (si > -1 && si < x.length - 1) ? '/' : '';
+//   return `${s}${a}${b}`;
+// } // function
+//
+// function human_fs_args(a: string, b: string): string {
+//   return [a,b].map(human_fs_arg).join(' -> ');
+// } // function
