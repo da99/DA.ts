@@ -3,12 +3,12 @@
 import {
   inspect,meta_url, match, values, not_found,
   sh, echo, list_files,
-  glob, cd, join
+  glob, cd, join,
+  pgrep_f, pstree_p, keep_alive, run, exit,
+  yellow, bold
 } from "../src/Shell.ts";
-import {pgrep_f, pstree_p, keep_alive, run, exit} from "../src/Process.ts";
 
 import {build_www, build_app} from "../src/Build_WWW.ts";
-import { yellow, bold } from "https://deno.land/std/fmt/colors.ts";
 
 import {create_from_template} from "./_.template.ts";
 import {split_whitespace} from "../src/Function.ts";

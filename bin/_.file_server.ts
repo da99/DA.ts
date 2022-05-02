@@ -1,13 +1,12 @@
 
 
-import {throw_on_fail, run} from "../src/Process.ts";
-import type {Result} from "../src/Process.ts";
 import {
   content_type, split_whitespace
 } from "../src/Function.ts";
+
 import {
   yellow, bold, green, bgRed, white,
-  join
+  join, throw_on_fail, run
 } from "../src/Shell.ts";
 
 import {
@@ -16,8 +15,11 @@ import {
   send,
   ServerSentEventTarget
 } from "https://deno.land/x/oak/mod.ts";
-import type {Context} from "https://deno.land/x/oak/context.ts";
+
 import nunjucks from "https://deno.land/x/nunjucks/mod.js";
+
+import type {Result} from "../src/Shell.ts";
+import type {Context} from "https://deno.land/x/oak/context.ts";
 
 const NUN = nunjucks.configure({noCache: true});
 

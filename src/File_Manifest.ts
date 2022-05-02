@@ -1,4 +1,4 @@
-import {run, throw_on_fail} from "../src/Process.ts";
+import {run, throw_on_fail} from "../src/Shell.ts";
 import {contentType} from "https://deno.land/x/media_types/mod.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 

@@ -1,6 +1,7 @@
+
 import { describe, it } from "../src/Spec.ts";
 import { daEquals } from "./_.helper.ts";
-import { throw_on_fail, run } from "../src/Process.ts";
+import { throw_on_fail, run } from "../src/Shell.ts";
 
 // =============================================================================
 describe("run");

@@ -2,10 +2,9 @@
 
 // import * as path from "https://deno.land/std/path/mod.ts";
 import {meta_url, match, not_found, inspect, IS_VERBOSE} from "../src/Shell.ts";
-import {run} from "../src/Process.ts";
 import { green, red, yellow, bold } from "https://deno.land/std/fmt/colors.ts";
 import {content_type, human_bytes, MB, sort_by_key, count} from "../src/Function.ts";
-import {fd, table, shell_lines, shell_string} from "../src/Shell.ts";
+import {fd, table, shell_lines, shell_string, run} from "../src/Shell.ts";
 import { readableStreamFromReader } from "https://deno.land/std/streams/conversion.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 import {
