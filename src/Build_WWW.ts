@@ -48,9 +48,10 @@ export async function build_worker(WORKER_TS: string, WORKER_JS: string) {
 
 export const WWW_FILE_EXTENSIONS = split_whitespace(".ts .less .njk");
 export function raw_www_files(): string[] {
+  const first_chars = ['.', '_'];
   return list_files('.', Infinity)
   .filter(
-    f => base(f).charAt(0) !== "_" && WWW_FILE_EXTENSIONS.includes(ext(f))
+    f =>  !first_chars.includes(base(f).charAt(0)) && WWW_FILE_EXTENSIONS.includes(ext(f))
   );
 } // export function
 
