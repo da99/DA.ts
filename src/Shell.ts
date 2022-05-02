@@ -11,6 +11,7 @@ import {
 
 import * as path from "https://deno.land/std/path/mod.ts";
 import { bold, green, yellow, blue } from "https://deno.land/std/fmt/colors.ts";
+export { bold, green, yellow, blue };
 import { readerFromStreamReader, copy as copyIO } from "https://deno.land/std/streams/conversion.ts"
 import {
   emptyDirSync,
