@@ -1,6 +1,6 @@
 
 import { describe, it, equals, change_directory } from "../src/Spec.ts";
-import { create_file as c_f} from "../src/Shell.ts";
+import { create } from "../src/Shell.ts";
 import { raw_www_files } from "../src/Build_WWW.ts";
 
 // =============================================================================
@@ -12,9 +12,9 @@ describe("raw_www_files");
 // =============================================================================
 
 it("lists files deeply nested", () => {
-  c_f("a/b/c/home.njk");
-  c_f("a/b/c/home.ts");
-  c_f("a/b/c/home.less");
+  create.file("a/b/c/home.njk");
+  create.file("a/b/c/home.ts");
+  create.file("a/b/c/home.less");
 
   equals(
     raw_www_files().sort(),

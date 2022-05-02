@@ -97,36 +97,253 @@ export async function shell_lines(
   return lines(str);
 } // export async
 
-export function create_shell_lines_cmd(s: string) {
-  return function (args: string | string[]): Promise<Lines> {
-    return shell_lines(s, args);
-  } // export async
-} // export async function
-
-export function create_sh_cmd(cmd: string) {
-  return function (args: string | string[]) {
-    return throw_on_fail(run([cmd, args].flat(), "piped", "verbose"));
-  } // export async
-} // export async function
-
 export async function sh(cmd: string | string[]): Promise<Result> {
   return await throw_on_fail(run(cmd, "piped", "verbose"));
 } // async function
 
-export const fd     = create_shell_lines_cmd('fd');
-export const find   = create_shell_lines_cmd('find');
 
-export function lines(x: string | string[]) {
-  return new Lines(x);
-} // export function
+// =============================================================================
+// create:
+// =============================================================================
 
-export function table(x: any[] | any[][]): Table {
-  return new Table(x);
-} // export function
+export const create = {
+  shell_lines_cmd: function create_shell_lines_cmd(s: string) {
+    return function (args: string | string[]): Promise<Lines> {
+      return shell_lines(s, args);
+    }
+  },
+
+  sh_cmd: function create_sh_cmd(cmd: string) {
+    return function (args: string | string[]) {
+      return throw_on_fail(run([cmd, args].flat(), "piped", "verbose"));
+    }
+  },
+
+  file: function create_file(f: string): string {
+    if (is.exist(f))
+      return f;
+
+    const d = dir(f);
+    if (!is.current_dir(d))
+      create.dir(d);
+
+    Deno.writeTextFileSync(f, '');
+    return f;
+  },
+
+
+  dir: function create_dir(d: string): string {
+    if (is.current_dir(d))
+      return d;
+
+    if (is.exist(d)) {
+      if (!is.dir(d))
+        throw new Error(`create.dir(${d}): Not a directory: ${d}`)
+      return d;
+    }
+
+    ensureDirSync(d);
+    return d;
+  },
+
+}; /// export const create
+
+// =============================================================================
+// read:
+// =============================================================================
+export const read = {
+  file: function read_file(f: string) {
+    return Deno.readTextFileSync(f);
+  },
+
+  default_file: function default_read_file(default_x: any, file_path: string) {
+    try {
+      return Deno.readTextFileSync(file_path);
+    } catch (e) {
+      return default_x;
+    }
+  } // export function
+
+}; // export const read
+
+// =============================================================================
+// write:
+// =============================================================================
+export const write = {
+  file: function write_file(f: string, content: string) {
+    create.dir(dir(f));
+    return Deno.writeTextFileSync(f, content);
+  } // export function
+}; // export const write
+
+// =============================================================================
+// empty:
+// =============================================================================
+export const empty = {
+
+  file: function empty_file(s: string): string {
+    create.file(s);
+    Deno.writeTextFileSync(s, "");
+    return s;
+  },
+
+  dir: function empty_dir(s?: string): string {
+    if (!s)
+      s = '.';
+    if (!is.current_dir(s))
+      create.dir(s)
+    if (is.current_dir(s))
+      emptyDirSync(cwd());
+    else
+      emptyDirSync(s);
+    return s;
+  },
+
+}; // export const empty
+
+// =============================================================================
+// is:
+// =============================================================================
+export const is = {
+
+  pattern: function is_pattern(x: string) {
+    const first_char = x.charAt(0);
+    return first_char === '[' || first_char === '<';
+  },
+
+  menu: function is_menu(s: string) {
+    return s.indexOf('|') > 0;
+  },
+
+  path: function is_path(s: string): boolean {
+    const first = s.indexOf('/');
+    return first > -1 && first !== (s.length - 1);
+  },
+
+  exist: function is_exist(raw: string): boolean {
+    try {
+      return !!stat(raw);
+    } catch (e) {
+      return false;
+    }
+  },
+
+  empty: function is_empty(x: string): boolean {
+    if (!is.exist(x))
+      return true;
+
+    if (is.dir(x))
+      return list(x, 1).length === 0;
+
+    return lstat(x).size === 0;
+  },
+
+  dir: function is_dir(raw: string) {
+    try {
+      return stat(raw).isDirectory;
+    } catch (err) {
+      return false;
+    }
+  },
+
+  current_dir: function is_current_dir(raw: string) {
+    return raw === '.' || raw === './';
+  },
+
+  file: function is_file(raw: string) {
+    try {
+      return stat(raw).isFile;
+    } catch (err) {
+      return false;
+    }
+  },
+
+  symbolic_link: function is_symbolic_link(raw: string) {
+    try {
+      return stat(raw).isSymlink;
+    } catch (err) {
+      return false;
+    }
+  },
+
+}; // export const empty
+
+// =============================================================================
+// rename:
+// =============================================================================
+export const rename = {
+  /*
+    * Rename a file:
+    *   rename('dir/my_file.txt', 'new.txt') => 'dir/new.txt'
+  */
+  file: function rename_file(a: string, b: string) {
+    if (!is.exist(a))
+      throw new Error(`rename.file(${inspect(a)}, ${inspect(b)}): ${inspect(a)} does not exist.`);
+    if (!is.file(a))
+      throw new Error(`rename.file(${inspect(a)}, ${inspect(b)}): ${inspect(a)} must be a file.`);
+    if (is.path(b))
+      throw new Error(`rename.file(${inspect(a)}, ${inspect(b)}): ${inspect(b)} may not be a path.`);
+
+    return _rename(a, b);
+  }, // export function
+
+  /*
+    * Rename a directory:
+    *   rename('a/b/dir', 'c')               => 'a/b/c'
+  */
+  dir: function rename_dir(a: string, b: string) {
+    if (!is.exist(a))
+      throw new Error(`rename.dir(${inspect(a)}, ${inspect(b)}): ${inspect(a)} does not exist.`);
+    if (!is.dir(a))
+      throw new Error(`rename.dir(${inspect(a)}, ${inspect(b)}): ${inspect(a)} must be a directory.`);
+    if (is.path(b))
+      throw new Error(`rename.dir(${inspect(a)}, ${inspect(b)}): ${inspect(b)} may not be a path.`);
+
+    return _rename(a, b);
+  }, // export function
+
+}; // export const rename
+
+
+// =============================================================================
+// del:
+// =============================================================================
+export const del = {
+  symbolic_link: function delete_symbolic_link(x: string, throwable: 'throw' | 'ignore' = 'throw'): boolean {
+    return del.file(x, throwable);
+  },
+
+  file: function delete_file(x: string, throwable: 'throw' | 'ignore' = 'throw'): boolean {
+    if (!is.exist(x)) {
+      if (throwable === 'throw')
+        throw new Error(`${inspect(x)} does not exist.`)
+      return false;
+    }
+    Deno.removeSync(x, {recursive: false});
+    return true;
+  },
+
+  dir: function delete_dir(x: string, throwable: 'throw' | 'ignore' = 'throw'): boolean {
+    if (!is.exist(x)) {
+      if (throwable === 'throw')
+        throw new Error(`${inspect(x)} does not exist.`)
+      return false;
+    }
+
+    Deno.removeSync(x, {recursive: true});
+    return true;
+  } // export function
+
+}; // export const del
+
 
 // =============================================================================
 // Lines:
 // =============================================================================
+
+export function lines(x: string | string[]) {
+  return new Lines(x);
+} // export function
 
 export class Lines {
   readonly raw: string[];
@@ -186,6 +403,10 @@ export class Lines {
 // =============================================================================
 // Table:
 // =============================================================================
+
+export function table(x: any[] | any[][]): Table {
+  return new Table(x);
+} // export function
 
 export class Table {
   raw: any[][];
@@ -693,6 +914,15 @@ export function row_indexes(n: number, arr: any[][]): number[][] {
   return fin;
 } // export function
 
+
+let _user_input: string[] = [];
+let _vars: Array<string | string[]> = [];
+let is_found = false;
+let is_help = false;
+let _import_meta_url = "file:///unknown_project/bin/unknown";
+
+args(Deno.args);
+
 // =============================================================================
 // CLI:
 // =============================================================================
@@ -720,18 +950,10 @@ export function raw_inspect(x: any) {
   );
 } // export
 
-function is_pattern(x: string) {
-  const first_char = x.charAt(0);
-  return first_char === '[' || first_char === '<';
-} // function
-
 function inner_pattern(s: string) {
   return s.substring(1, s.length - 1);
 } // function
 
-function is_menu(s: string) {
-  return s.indexOf('|') > 0;
-} // function
 
 function* gen(arr: string[]) {
   for (const x of arr) {
@@ -752,7 +974,7 @@ export function get_vars(raw_cmd: string, user_input: string[]) : false | Array<
     const i      = i_next.value;
     i_done       = i_next.done || false;
 
-    if (!is_pattern(pattern)) {
+    if (!is.pattern(pattern)) {
       if (i !== pattern)
         return false;
       continue;
@@ -768,7 +990,7 @@ export function get_vars(raw_cmd: string, user_input: string[]) : false | Array<
       return vars;
     }
 
-    if (!is_menu(inner)) {
+    if (!is.menu(inner)) {
       if (pattern.indexOf('<') === 0) {
         if (i_done)
           return false;
@@ -807,14 +1029,6 @@ export function get_vars(raw_cmd: string, user_input: string[]) : false | Array<
 
   return vars;
 } // function
-
-let _user_input: string[] = [];
-let _vars: Array<string | string[]> = [];
-let is_found = false;
-let is_help = false;
-let _import_meta_url = "file:///unknown_project/bin/unknown";
-
-args(Deno.args);
 
 export function meta_url(url: string) {
   _import_meta_url = url;
@@ -962,7 +1176,6 @@ export function split_cli_command(raw_s: string) : Array<string> {
   return words; // .map(x => x.replace(/\s*\|\s*/g, "|"));
 } // function
 
-
 export async function template(
   tmpl:     string,
   new_file: string,
@@ -972,7 +1185,7 @@ export async function template(
   if (tmpl.trim().toLowerCase().indexOf("http") === 0) {
     tmpl_contents = await fetch_text(tmpl);
   } else {
-    tmpl_contents = read_file(tmpl);
+    tmpl_contents = read.file(tmpl);
   }
 
   const info = path.parse(new_file);
@@ -980,7 +1193,7 @@ export async function template(
 
   try {
     lstat(new_file);
-    const contents = read_file(new_file);
+    const contents = read.file(new_file);
     if (contents.trim().length > 0) {
       console.error(`=== File already exists: ${new_file}`);
       return contents;
@@ -989,10 +1202,10 @@ export async function template(
     // continue
   }
 
-  create_dir(dir);
+  create.dir(dir);
 
-  write_file(new_file, compile_template(tmpl_contents, values));
-  const new_contents = read_file(new_file);
+  write.file(new_file, compile_template(tmpl_contents, values));
+  const new_contents = read.file(new_file);
   if ((new_contents || "").indexOf("#!") === 0) {
     chmod(new_file, 0o700);
   }
@@ -1062,16 +1275,16 @@ export function dir(s: string, opt: '.' | '/' | 'cwd' | 'cwd/' = '.') {
   * move_dir("/file.txt", "some/other/dir") => some/other/dir/file.txt
 */
 export function move_file(a: string, b: string) {
-  if (!is_exist(a))
+  if (!is.exist(a))
     throw new Error(`move_file(${inspect(a)}, ${inspect(b)}): ${inspect(a)} does not exist.`);
 
-  if (!is_exist(b))
+  if (!is.exist(b))
     throw new Error(`move_file(${inspect(a)}, ${inspect(b)}): ${inspect(b)} does not exist.`);
 
-  if (!is_file(a))
+  if (!is.file(a))
     throw new Error(`move_file(${inspect(a)}, ${inspect(b)}): ${inspect(a)} must be a file.`);
 
-  if (!is_dir(b))
+  if (!is.dir(b))
     throw new Error(`move_file(${inspect(a)}, ${inspect(b)}): ${inspect(b)} must be a directory.`);
 
   return Deno.renameSync(a, join(b, base(a)));
@@ -1082,13 +1295,13 @@ export function move_file(a: string, b: string) {
   * move_dir("/my_dir", "some/other/dir") => some/other/dir/my_dir
 */
 export function move_dir(a: string, b: string) {
-  if (!is_exist(a))
+  if (!is.exist(a))
     throw new Error(`move(${inspect(a)}, ${inspect(b)}): ${inspect(a)} does not exist.`);
-  if (!is_exist(b))
+  if (!is.exist(b))
     throw new Error(`move(${inspect(a)}, ${inspect(b)}): ${inspect(b)} does not exist.`);
-  if (!is_dir(a))
+  if (!is.dir(a))
     throw new Error(`move(${inspect(a)}, ${inspect(b)}): ${inspect(a)} is not a directory.`);
-  if (!is_dir(b))
+  if (!is.dir(b))
     throw new Error(`move(${inspect(a)}, ${inspect(b)}): ${inspect(b)} is not a directory.`);
 
   const new_path = join(b, base(a));
@@ -1096,40 +1309,11 @@ export function move_dir(a: string, b: string) {
   return new_path;
 } // export function
 
-/*
-  * Rename a file:
-  *   rename('dir/my_file.txt', 'new.txt') => 'dir/new.txt'
-*/
-export function rename_file(a: string, b: string) {
-  if (!is_exist(a))
-    throw new Error(`rename_file(${inspect(a)}, ${inspect(b)}): ${inspect(a)} does not exist.`);
-  if (!is_file(a))
-    throw new Error(`rename_file(${inspect(a)}, ${inspect(b)}): ${inspect(a)} must be a file.`);
-  if (is_path(b))
-    throw new Error(`rename_file(${inspect(a)}, ${inspect(b)}): ${inspect(b)} may not be a path.`);
-
-  return _rename(a, b);
-} // export function
-
-/*
-  * Rename a directory:
-  *   rename('a/b/dir', 'c')               => 'a/b/c'
-*/
-export function rename_dir(a: string, b: string) {
-  if (!is_exist(a))
-    throw new Error(`rename_dir(${inspect(a)}, ${inspect(b)}): ${inspect(a)} does not exist.`);
-  if (!is_dir(a))
-    throw new Error(`rename_dir(${inspect(a)}, ${inspect(b)}): ${inspect(a)} must be a directory.`);
-  if (is_path(b))
-    throw new Error(`rename_dir(${inspect(a)}, ${inspect(b)}): ${inspect(b)} may not be a path.`);
-
-  return _rename(a, b);
-} // export function
 
 function _rename(a: string, b: string): string {
   return cd(dir(a), () => {
     const new_path = join(cwd(), b);
-    if (is_exist(new_path))
+    if (is.exist(new_path))
       throw new Error(`${Deno.inspect(new_path)} already exists.`);
     Deno.renameSync(base(a), b);
     return new_path;
@@ -1152,14 +1336,6 @@ export function create_symbolic_link(src: string, dest: string) {
   return Deno.symlinkSync(src, dest);
 } // export function
 
-export function read_file(f: string) {
-  return Deno.readTextFileSync(f);
-} // export function
-
-export function write_file(f: string, content: string) {
-  create_dir(dir(f));
-  return Deno.writeTextFileSync(f, content);
-} // export function
 
 export async function fetch_text(u: string | Request) {
   return fetch(u).then(x => x.text());
@@ -1170,13 +1346,13 @@ export async function fetch_json(u: string | Request) {
 } // export async function
 
 export function copy_file(f: string, dest: string): string {
-  if (!is_exist(f))
+  if (!is.exist(f))
     throw new Error(`copy_file(${inspect(f)}, ${inspect(dest)}): ${inspect(f)} does not exist.`);
-  if (!is_exist(dest))
+  if (!is.exist(dest))
     throw new Error(`copy_file(${inspect(f)}, ${inspect(dest)}): ${inspect(dest)} does not exist.`);
-  if (!is_file(f))
+  if (!is.file(f))
     throw new Error(`copy_file(${inspect(f)}, ${inspect(dest)}): ${inspect(f)} must be a file.`);
-  if (!is_dir(dest))
+  if (!is.dir(dest))
     throw new Error(`copy_file(${inspect(f)}, ${inspect(dest)}): ${inspect(dest)} must be a directory.`);
 
   const full_dest = path.join(dest, path.basename(f))
@@ -1186,13 +1362,13 @@ export function copy_file(f: string, dest: string): string {
 } // export function
 
 export function copy_dir(d: string, dest: string): string {
-  if (!is_exist(d))
+  if (!is.exist(d))
     throw new Error(`copy_dir(${inspect(d)}, ${inspect(dest)}): ${inspect(d)} does not exist.`);
-  if (!is_exist(dest))
+  if (!is.exist(dest))
     throw new Error(`copy_dir(${inspect(d)}, ${inspect(dest)}): ${inspect(dest)} does not exist.`);
-  if (!is_dir(d))
+  if (!is.dir(d))
     throw new Error(`copy_dir(${inspect(d)}, ${inspect(dest)}): ${inspect(d)} must be a directory.`);
-  if (!is_dir(dest))
+  if (!is.dir(dest))
     throw new Error(`copy_dir(${inspect(d)}, ${inspect(dest)}): ${inspect(dest)} must be a directory.`);
 
   const full_dest = path.join(dest, path.basename(d))
@@ -1207,13 +1383,13 @@ export function copy_dir(d: string, dest: string): string {
   * copy_list('a/b', '/dir') => /dir has files of a/b
 */
 export function copy_list(d: string, dest: string) {
-  if (!is_exist(d))
+  if (!is.exist(d))
     throw new Error(`copy_list(${inspect(d)}, ${inspect(dest)}): ${inspect(d)} does not exist.`);
-  if (!is_exist(dest))
+  if (!is.exist(dest))
     throw new Error(`copy_list(${inspect(d)}, ${inspect(dest)}): ${inspect(dest)} does not exist.`);
-  if (!is_dir(d))
+  if (!is.dir(d))
     throw new Error(`copy_list(${inspect(d)}, ${inspect(dest)}): ${inspect(d)} must be a directory.`);
-  if (!is_dir(dest))
+  if (!is.dir(dest))
     throw new Error(`copy_list(${inspect(d)}, ${inspect(dest)}): ${inspect(dest)} must be a directory.`);
 
 
@@ -1225,7 +1401,7 @@ export function copy_list(d: string, dest: string) {
       copy_file(join(d, f), dest);
     } else {
       const new_f_dir = join(dest, f_dir);
-      create_dir(new_f_dir)
+      create.dir(new_f_dir)
       copy_file(join(d, f), new_f_dir);
     }
   } // for
@@ -1242,7 +1418,7 @@ export function base(f: string): string {
 } // export function
 
 export function list_dirs(d: string = '.', maxDepth: number = 1): string[] {
-  if (!is_dir(d))
+  if (!is.dir(d))
     throw new Error(`dirs_of(${inspect(d)}): ${inspect(d)} is not a directory`);
 
   return cd(d, () => {
@@ -1275,74 +1451,7 @@ export function list_files(d: string = '.', maxDepth: number = 1): string[] {
   })
 } // export function
 
-export function create_dir(d: string): string {
-  if (is_current_dir(d))
-    return d;
 
-  if (is_exist(d)) {
-    if (!is_dir(d))
-      throw new Error(`create_dir(${d}): Not a directory: ${d}`)
-    return d;
-  }
-
-  ensureDirSync(d);
-  return d;
-} // export function
-
-export function create_file(f: string): string {
-  if (is_exist(f))
-    return f;
-
-  const d = dir(f);
-  if (!is_current_dir(d))
-    create_dir(d);
-
-  Deno.writeTextFileSync(f, '');
-  return f;
-} // export function
-
-export function delete_symbolic_link(x: string, throwable: 'throw' | 'ignore' = 'throw'): boolean {
-  return delete_file(x, throwable);
-} // export function
-
-export function delete_file(x: string, throwable: 'throw' | 'ignore' = 'throw'): boolean {
-  if (!is_exist(x)) {
-    if (throwable === 'throw')
-      throw new Error(`${inspect(x)} does not exist.`)
-    return false;
-  }
-  Deno.removeSync(x, {recursive: false});
-  return true;
-} // export function
-
-export function delete_dir(x: string, throwable: 'throw' | 'ignore' = 'throw'): boolean {
-  if (!is_exist(x)) {
-    if (throwable === 'throw')
-      throw new Error(`${inspect(x)} does not exist.`)
-    return false;
-  }
-
-  Deno.removeSync(x, {recursive: true});
-  return true;
-} // export function
-
-export function empty_file(s: string): string {
-  create_file(s);
-  Deno.writeTextFileSync(s, "");
-  return s;
-} // export function
-
-export function empty_dir(s?: string): string {
-  if (!s)
-    s = '.';
-  if (!is_current_dir(s))
-    create_dir(s)
-  if (is_current_dir(s))
-    emptyDirSync(cwd());
-  else
-    emptyDirSync(s);
-  return s;
-} // export function
 
 export function cd(dir: string, f?: Function) {
   if (!f) {
@@ -1365,141 +1474,6 @@ export async function a_cd<T>(dir: string, f: () => Promise<T>): Promise<T> {
   return result;
 } // export async function
 
-export function is_path(s: string): boolean {
-  const first = s.indexOf('/');
-  return first > -1 && first !== (s.length - 1);
-} // export function
-
-export function is_exist(raw: string): boolean {
-  try {
-    return !!stat(raw);
-  } catch (e) {
-    return false;
-  }
-} // export function
-
-export function is_empty(x: string): boolean {
-  if (!is_exist(x))
-    return true;
-
-  if (is_dir(x))
-    return list(x, 1).length === 0;
-
-  return lstat(x).size === 0;
-} // export function
-
-export function is_dir(raw: string) {
-  try {
-    return stat(raw).isDirectory;
-  } catch (err) {
-    return false;
-  }
-} // export function
-
-export function is_current_dir(raw: string) {
-  return raw === '.' || raw === './';
-} // export function
-
-export function is_file(raw: string) {
-  try {
-    return stat(raw).isFile;
-  } catch (err) {
-    return false;
-  }
-} // export function
-
-export function is_symbolic_link(raw: string) {
-  try {
-    return stat(raw).isSymlink;
-  } catch (err) {
-    return false;
-  }
-} // export function
-
-export function default_read_file(default_x: any, file_path: string) {
-  try {
-    return Deno.readTextFileSync(file_path);
-  } catch (e) {
-    return default_x;
-  }
-} // export function
-
-/*
- * Text_File: The file does not have to exist.
- */
-export class Text_File {
-  __filename: string;
-  __contents: string | null;
-
-  constructor(x: string) {
-    this.__filename = x;
-    this.__contents = null;
-  } // constructor
-
-  get not_empty() {
-    return (this.text || "").trim().length > 0;
-  } // get
-
-  get filename() {
-    return this.__filename;
-  } // get
-
-  get lines() : string[] {
-    const body = this.text;
-    if (body) {
-      return body.split(/\n/);
-    }
-    return [];
-  } // get
-
-  get text() {
-    if (!this.__contents) {
-      try {
-        this.__contents = Deno.readTextFileSync(this.filename);
-      } catch(e) {
-        switch (e.name) {
-          case "NotFound":
-            // ignored
-            break;
-          default: { throw e; }
-        } // switch
-      } // try/catch
-    } // if
-
-    if ((this.__contents || "").trim().length === 0) {
-      return null;
-    }
-    return this.__contents;
-  } // get
-
-  get exists() : boolean{
-    try {
-      if (Deno.lstatSync(this.filename)) {
-        return true;
-      }
-    } catch (e) {
-      if (e.name !== "NotFound") throw e;
-    }
-    return false;
-  } // get
-
-  write(s: string) {
-    Deno.writeTextFileSync(this.filename, s);
-    this.__contents = null;
-    return this;
-  } // method
-
-  delete() {
-    try {
-      Deno.removeSync(this.filename);
-    } catch (e) {
-      // ignored for now.
-    }
-
-    return this;
-  } // method
-
-} // class
 
 export function find_parent_file(file_name: string, dir: string) {
   let current_dir = dir;
@@ -1549,4 +1523,7 @@ export async function download(url: string, file?: string) {
   return true;
 } // export async function
 
+
+export const fd     = create.shell_lines_cmd('fd');
+export const find   = create.shell_lines_cmd('find');
 

@@ -2,7 +2,7 @@
 import nunjucks from "https://deno.land/x/nunjucks/mod.js";
 import {throw_on_fail, run} from "./Process.ts";
 import {split_whitespace} from "./String.ts";
-import {create_dir, write_file, download, list_files, base, ext} from "./Shell.ts";
+import {create, write, download, list_files, base, ext} from "./Shell.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 import { bold, yellow } from "https://deno.land/std/fmt/colors.ts";
 
@@ -42,7 +42,7 @@ export async function build_worker(WORKER_TS: string, WORKER_JS: string) {
   const filename = WORKER_TS;
   const new_file = WORKER_JS;
   const { stdout } = await _run(`deno bundle ${filename}`);
-  write_file(new_file, stdout);
+  write.file(new_file, stdout);
   print_wrote(new_file);
 } // export async function
 
@@ -54,12 +54,6 @@ export function raw_www_files(): string[] {
     f =>  !first_chars.includes(base(f).charAt(0)) && WWW_FILE_EXTENSIONS.includes(ext(f))
   );
 } // export function
-
-function assert_files_in(dir: string, files: string[]) {
-  if (files.length === 0) {
-    throw new Error(`--- No files found in: ${dir}`);
-  }
-} // function
 
 export async function build_www(group: "css"|"js"|"html", public_path: string, RAW_CONFIG: Record<string, any>) {
   const CONFIG      = Object.assign({}, DEFAULT_OPTIONS, RAW_CONFIG);
@@ -108,7 +102,7 @@ export async function download_alpine_js(vendor: string) {
 
 export async function build_update(src_dir: string) {
   const vendor = path.join(src_dir, "vendor");
-  create_dir(vendor);
+  create.dir(vendor);
   return await Promise.all([
     download_normalize_css(vendor),
     download_alpine_js(vendor)

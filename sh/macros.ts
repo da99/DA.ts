@@ -1,6 +1,6 @@
 #!/usr/bin/env -S deno run --allow-write="src/FaunaDB.ts,src/Node-FaunaDB.mjs" --allow-read="src/FaunaDB.ts,src/Node-FaunaDB.mjs"
 
-import { Text_File } from "../src/Shell.ts";
+import { read, write } from "../src/Shell.ts";
 import { each_block } from "../src/String.ts";
 
 const COMMANDS = {
@@ -43,19 +43,18 @@ const __dirname = __filename.split("/").slice(0, -1).join("/");
 const cmd = Deno.args[0];
 
 function replace_macro(filename: string, name: string, new_block: string) {
-  let f = new Text_File(filename);
-  const old_body = f.text || "";
+  const old_body = read.default_file("", filename);
   const matches = each_block(old_body, `// start macro: ${name}`, `// end macro`, (old_block) => {
     if (old_block === new_block) {
-      console.log(`=== Already updated: ${name} ${f.filename}`);
+      console.log(`=== Already updated: ${name} ${filename}`);
       return;
     }
-    f.write(old_body.replace(old_block, new_block));
-    console.log(`=== Wrote: ${name} ${f.filename}`);
+    write.file(filename, old_body.replace(old_block, new_block));
+    console.log(`=== Wrote: ${name} ${filename}`);
   });
 
   if (matches.length === 0) {
-    console.error(`!!! No macro found for: ${name} in ${f.filename}`);
+    console.error(`!!! No macro found for: ${name} in ${filename}`);
     Deno.exit(1);
   }
 } // function
