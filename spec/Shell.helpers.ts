@@ -1,7 +1,8 @@
 
 import { change_directory, describe, it, equals, matches } from "../src/Spec.ts";
 import {
-  shell_string,
+  is_exist,
+  sh, shell_string, stat,
   copy_file, copy_dir, copy_list,
   fetch_text, fetch_json,
   rename_file, rename_dir,
@@ -13,6 +14,15 @@ import {
 // =============================================================================
 change_directory(); // =============================================================
 // =============================================================================
+
+// =============================================================================
+describe("sh");
+// =============================================================================
+
+it(`runs the command`, async () => {
+  await sh(`touch a.txt`);
+  equals(is_exist('a.txt'), true);
+});
 
 // =============================================================================
 describe("fetch_text");

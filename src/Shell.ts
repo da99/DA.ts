@@ -95,18 +95,24 @@ export async function shell_lines(
   return lines(str);
 } // export async
 
-export function create_shell_cmd(s: string) {
-  return async function (args: string | string[]): Promise<Lines> {
-    return await shell_lines(s, args);
+export function create_shell_lines_cmd(s: string) {
+  return function (args: string | string[]): Promise<Lines> {
+    return shell_lines(s, args);
   } // export async
 } // export async function
 
-export const fd     = create_shell_cmd('fd');
-export const deno   = create_shell_cmd('deno');
-export const npm    = create_shell_cmd('npm');
-export const npx    = create_shell_cmd('npx');
-export const find   = create_shell_cmd('find');
-export const shards = create_shell_cmd('shards');
+export function create_sh_cmd(cmd: string) {
+  return function (args: string | string[]) {
+    return throw_on_fail(run([cmd, args].flat(), "piped", "verbose"));
+  } // export async
+} // export async function
+
+export async function sh(cmd: string | string[]): Promise<Result> {
+  return await throw_on_fail(run(cmd, "piped", "verbose"));
+} // async function
+
+export const fd     = create_shell_lines_cmd('fd');
+export const find   = create_shell_lines_cmd('find');
 
 export function lines(x: string | string[]) {
   return new Lines(x);
