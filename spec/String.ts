@@ -1,10 +1,12 @@
 import { describe, it, equals } from "../src/Spec.ts";
 import {
   split_whitespace,
-  each_block,
   split_join,
+} from "../src/Function.ts";
+import {
+  each_block,
   insert_after_line_contains
-} from "../src/String.ts";
+} from "../src/Template.ts";
 
 // # =============================================================================
 describe("split_whitespace");

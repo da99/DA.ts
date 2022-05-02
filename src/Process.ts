@@ -1,6 +1,7 @@
 
 import {inspect} from "../src/Shell.ts";
-import {split_whitespace, flatten_cmd} from "../src/String.ts";
+import {split_whitespace} from "../src/Function.ts";
+import {flatten_cmd} from "../src/Shell.ts";
 import { bold, red, green, yellow, bgRed, white } from "https://deno.land/std/fmt/colors.ts";
 // import { sleep } from "https://deno.land/x/sleep/mod.ts";
 

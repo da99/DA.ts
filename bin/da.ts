@@ -11,7 +11,7 @@ import {build_www, build_app} from "../src/Build_WWW.ts";
 import { yellow, bold } from "https://deno.land/std/fmt/colors.ts";
 
 import {create_from_template} from "./_.template.ts";
-import {split_whitespace} from "../src/String.ts";
+import {split_whitespace} from "../src/Function.ts";
 import {install_latest as nodejs_install_latest} from "../src/NodeJS.ts";
 import {start} from "./_.file_server.ts";
 

@@ -1,5 +1,5 @@
 import { describe, it } from "../src/Spec.ts";
-import { split_whitespace } from "../src/String.ts";
+import { split_whitespace } from "../src/Function.ts";
 import { daEquals } from "./_.helper.ts";
 import { get_vars, split_cli_command } from "../src/Shell.ts";
 

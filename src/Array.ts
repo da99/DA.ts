@@ -7,17 +7,18 @@ export interface Slice_Spec {
 
 export type Arrange_Spec = Array<number | Slice_Spec>;
 
-export function unique_text(arr: string[]) : string[] {
+export function unique_text(arr: string[], keep_whitespace: boolean = true) : string[] {
   const o = {} as Record<string, boolean>;
   const new_lines = [] as string[];
   for(const l of arr) {
     const trim = l.trim();
     if (trim.length === 0) {
-      new_lines.push(l);
+      if (keep_whitespace)
+        new_lines.push(l);
       continue;
     }
-    const unique = l.replaceAll(/\s+/g, "");
-    if (o[unique])
+    const unique = trim.replaceAll(/\s+/g, "");
+    if (unique in o)
       continue;
     o[unique] = true;
     new_lines.push(l);

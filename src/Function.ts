@@ -4,9 +4,51 @@ import * as path from "https://deno.land/std/path/mod.ts";
 
 export type Conditional = (x: any) => boolean;
 
-export const begin_dot_slash = /^\.+\/+/;
-export const end_slash = /\/+$/;
-export const MB = 1024 * 1024;
+export const begin_dot_slash    = /^\.+\/+/;
+export const end_slash          = /\/+$/;
+export const MB                 = 1024 * 1024;
+export const WHITESPACE_PATTERN = /\s+/
+
+export function trim(x: string): string {
+  return x.trim();
+} // function
+
+export function length_not_zero(x: {length: number}): boolean {
+  return x.length != 0;
+} // function
+
+export function squeeze_whitespace(s: string) {
+  return s.trim().replaceAll(WHITESPACE_PATTERN, ' ');
+} // function
+
+export function split_lines(s: string) {
+  return s.trim().split('\n');
+} // export function
+
+export function compact_lines(x: string, n: number) : string {
+  return x.replaceAll(new RegExp(`\\n{${n},}`, "g"), "\n");
+} // function
+
+export function split_join(str: string, join: string = " ") {
+  return split_whitespace(str).join(join);
+} // function
+
+export function string_to_array(x: string | string[]) {
+  if (Array.isArray(x))
+    return x;
+  return split_whitespace(x);
+} // export function
+
+export function split_whitespace(x: string) {
+  // The .split method call will not create any null values in the
+  // returned array. So no need to filter out null values.
+  // We just need to filter out empty strings.
+  return x
+  .trim()
+  .split(WHITESPACE_PATTERN)
+  .map(trim)
+  .filter(length_not_zero);
+} // function
 
 export function human_bytes(n: number): string {
   const bytes = n;

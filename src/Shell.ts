@@ -6,12 +6,12 @@ import {
   sum, map_length, count,
   pipe_function, max,
   is_length_0, is_any,
-  tail_count
+  tail_count, split_whitespace
 } from "./Function.ts";
 
 import * as path from "https://deno.land/std/path/mod.ts";
-import { bold, green, yellow, blue } from "https://deno.land/std/fmt/colors.ts";
-export { bold, green, yellow, blue };
+import { bold, green, yellow, blue, white, red, bgRed } from "https://deno.land/std/fmt/colors.ts";
+export { bold, green, yellow, blue, white, red, bgRed };
 import { readerFromStreamReader, copy as copyIO } from "https://deno.land/std/streams/conversion.ts"
 import {
   emptyDirSync,
@@ -101,6 +101,15 @@ export async function sh(cmd: string | string[]): Promise<Result> {
   return await throw_on_fail(run(cmd, "piped", "verbose"));
 } // async function
 
+export function flatten_cmd(args: Array<string | string[]>) {
+  return args.reduce((prev: string[], curr: string | string[]) => {
+    if (typeof curr === "string") {
+      return prev.concat(split_whitespace(curr));
+    } else {
+      return prev.concat(curr);
+    }
+  }, [] as string[]);
+} // export function
 
 // =============================================================================
 // create:

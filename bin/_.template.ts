@@ -1,9 +1,10 @@
 
 import {
-  meta_url, about, is_empty, create_file, write_file, read_file,
-  create_dir
+  meta_url, about, is,
+  create, write, read
 } from "../src/Shell.ts";
-import {split_whitespace, insert_after_line_contains} from "../src/String.ts";
+import {insert_after_line_contains} from "../src/Template.ts";
+import {split_whitespace} from "../src/Function.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 
 meta_url(import.meta.url);
@@ -31,13 +32,13 @@ export async function create_from_template(tmpl_name: string, fpath: string) {
     DA_PATH: in_da_ts ? relative_to_da(fpath) : "https://raw.githubusercontent.com/da99/da.ts/main"
   };
 
-  create_dir(dir);
+  create.dir(dir);
 
-  if (!is_empty(fpath)) {
+  if (!is.empty(fpath)) {
     console.error(`=== File already exists: ${fpath}`);
   } else {
-    write_file(fpath, compile_template(tmpl_name, vals));
-    if (read_file(fpath).indexOf("#!") === 0) {
+    write.file(fpath, compile_template(tmpl_name, vals));
+    if (read.file(fpath).indexOf("#!") === 0) {
       Deno.chmodSync(fpath, 0o700);
     }
     console.log(`=== Wrote: ${fpath}`);

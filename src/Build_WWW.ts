@@ -1,7 +1,7 @@
 
 import nunjucks from "https://deno.land/x/nunjucks/mod.js";
 import {throw_on_fail, run} from "./Process.ts";
-import {split_whitespace} from "./String.ts";
+import {split_whitespace} from "./Function.ts";
 import {create, write, download, list_files, base, ext} from "./Shell.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 import { bold, yellow } from "https://deno.land/std/fmt/colors.ts";

@@ -1,11 +1,15 @@
 
-import { yellow, bold, green, red, bgRed, white } from "https://deno.land/std/fmt/colors.ts";
-import nunjucks from "https://deno.land/x/nunjucks/mod.js";
-import {content_type, human_bytes, MB, sort_by_key, count} from "../src/Function.ts";
-import * as path from "https://deno.land/std/path/mod.ts";
-import {throw_on_fail, run} from "../../da.ts/src/Process.ts";
-import type {Result} from "../../da.ts/src/Process.ts";
-import {split_whitespace} from "../../da.ts/src/String.ts";
+
+import {throw_on_fail, run} from "../src/Process.ts";
+import type {Result} from "../src/Process.ts";
+import {
+  content_type, split_whitespace
+} from "../src/Function.ts";
+import {
+  yellow, bold, green, bgRed, white,
+  join
+} from "../src/Shell.ts";
+
 import {
   Application,
   Router,
@@ -13,6 +17,7 @@ import {
   ServerSentEventTarget
 } from "https://deno.land/x/oak/mod.ts";
 import type {Context} from "https://deno.land/x/oak/context.ts";
+import nunjucks from "https://deno.land/x/nunjucks/mod.js";
 
 const NUN = nunjucks.configure({noCache: true});
 
@@ -111,7 +116,7 @@ export async function start(port: number, render_cmd: string[]) {
       return;
     } // if
 
-    const file_path = path.join('.', ctx.request.url.pathname);
+    const file_path = join('.', ctx.request.url.pathname);
     if (await file_exists(file_path)) {
       await send(ctx, file_path, { root: CONFIG.public_dir, index: "index.html" });
       return;
