@@ -154,7 +154,8 @@ export async function build_app(group: "app"|"public"|"worker"|"update", RAW_CON
 
 export async function build_public(site: Record<string, any>) {
   const files = raw_www_files();
-  assert_files_in("./", files);
+  if (files.length === 0)
+    throw new Error(`=== No raw www files found in: ${yellow('.')}`);
 
   const promises = files.map(f => build_and_write_www_file(f, site));
   return await Promise.all(promises);
