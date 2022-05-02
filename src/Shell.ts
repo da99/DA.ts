@@ -998,6 +998,23 @@ export function compile_template(tmpl_contents: string, vars: Record<string, str
 // Based on the deno CLI APIs: https://doc.deno.land/deno/stable/
 // =============================================================================
 
+export function echo(...parts: any[]): string {
+  const str = parts.map(x => {
+    const t = typeof x;
+    switch (t) {
+      case "string":
+      case "number": {
+        return x
+      }
+      default: {
+        return Deno.inspect(x);
+      }
+    }
+  }).join(' ');
+  console.log(str);
+  return str;
+} // export
+
 export function chmod(f: string, n: number) {
   return Deno.chmodSync(f, n)
 } // export function
