@@ -16,7 +16,8 @@ import {
   emptyDirSync,
   ensureDirSync,
   copySync,
-  walkSync
+  walkSync,
+  expandGlobSync
 } from "https://deno.land/std/fs/mod.ts";
 
 import {join, common} from "https://deno.land/std/path/mod.ts";
@@ -1025,6 +1026,13 @@ export function echo(...parts: any[]): string {
   console.log(str);
   return str;
 } // export
+
+export function glob(p: string) {
+  const this_dir = cwd();
+  return [...expandGlobSync(p)].map(
+    f => f.path.replace(`${this_dir}/`, '')
+  );
+} // export function
 
 export function chmod(f: string, n: number) {
   return Deno.chmodSync(f, n)

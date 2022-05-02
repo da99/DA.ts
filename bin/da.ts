@@ -1,6 +1,10 @@
 #!/usr/bin/env -S deno run --allow-run --allow-net --allow-read --allow-write=./
 
-import {inspect,meta_url, match, values, not_found} from "../src/Shell.ts";
+import {
+  inspect,meta_url, match, values, not_found,
+  sh, echo, list_files,
+  glob, cd, join
+} from "../src/Shell.ts";
 import {pgrep_f, pstree_p, keep_alive, run, exit} from "../src/Process.ts";
 
 import {build_www, build_app} from "../src/Build_WWW.ts";
@@ -116,6 +120,19 @@ if (match("build [app|public|worker|update] <json_config>")) {
   );
 } // if
 
+if (match("cache reload [...args]", `default: src bin`)) {
+  let [dirs] = values() as string[][];
+  if (!dirs || dirs.length === 0)
+    dirs = ['src', 'bin']
+  let proms = [] as Promise<any>[];
+  for (const d of dirs) {
+    proms = proms.concat(
+      glob(join(d, '**/*.ts'))
+      .map(f => sh(`deno cache --reload ${f}`))
+    )
+  }
+  await Promise.all(proms);
+} // if
 
 // # =============================================================================
 // # === NodeJS related:
