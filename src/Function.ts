@@ -75,41 +75,74 @@ export function sum(arr: number[]) {
   return arr.reduce((p,c) => p + c, 0);
 } // export function
 
-export function is_async_function(x: any) {
-  return typeof(x) === "object" && x.constructor.name === "AsyncFunction";
-} // export function
 
-export function is_length_0(x: {length: number}) : boolean {
-  return(x.length === 0);
-} // export function
+// =============================================================================
+// is:
+// =============================================================================
+export const is = {
+  async_function: function is_async_function(x: any) {
+    return typeof(x) === "object" && x.constructor.name === "AsyncFunction";
+  },
 
-export function is_null(x: any) : boolean {
-  return(x === null);
-} // export function
+  length_0: function is_length_0(x: {length: number}) : boolean {
+    return(x.length === 0);
+  },
 
-export function is_true(x: any) : boolean {
-  return(x === true);
-} // export function
+  null: function is_null(x: any) : boolean {
+    return(x === null);
+  },
 
-export function is_false(x: any) : boolean {
-  return(x === false);
-} // export function
+  true: function is_true(x: any) : boolean {
+    return(x === true);
+  },
 
-export function is_boolean(x: any) : boolean {
-  return(typeof x === "boolean");
-} // export function
+  false: function is_false(x: any) : boolean {
+    return(x === false);
+  },
 
-export function is_string(x: any) : boolean {
-  return(typeof x === "string");
-} // export function
+  boolean: function is_boolean(x: any) : boolean {
+    return(typeof x === "boolean");
+  },
 
-export function is_number(x: any) : boolean {
-  return(typeof x === "number");
-} // export function
+  string: function is_string(x: any) : boolean {
+    return(typeof x === "string");
+  },
 
-export function is_null_or_undefined(x: any) : boolean {
-  return(x === null || typeof x === "undefined");
-} // export function
+  number: function is_number(x: any) : boolean {
+    return(typeof x === "number");
+  },
+
+  null_or_undefined: function is_null_or_undefined(x: any) : boolean {
+    return(x === null || typeof x === "undefined");
+  },
+
+  positive: function is_positive(n: number): boolean {
+    return n > -1;
+  }, // export function
+
+  all_equal: function is_all_equal(arr: any[]) {
+    if (arr.length === 0)
+      throw new Error(`Empty array invalid for: all_equal(${Deno.inspect(arr)})`)
+
+    const init = arr[0];
+    for (const x of arr) {
+      if (x !== init)
+        return false;
+    }
+    return true;
+  }, // export function
+
+  any: function is_any(f: (x: any) => boolean) : (x: any[]) => boolean {
+    return function (arr: any[]) {
+      for (const x of arr) {
+        if (f(x))
+          return true;
+      }
+      return false;
+    };
+  } // export function
+};
+// === end: is =================================================================
 
 export function env_or_throw(k: string): string {
   const x: string | undefined = Deno.env.get(k);
@@ -118,9 +151,6 @@ export function env_or_throw(k: string): string {
   return x;
 } // export function
 
-export function is_positive(n: number): boolean {
-  return n > -1;
-} // export function
 
 export function max(arr: number[]): number {
   if (arr.length === 0)
@@ -194,23 +224,11 @@ export function tail_indexes(target: any[], n: number): number[] {
   return fin;
 } // export function
 
-export function is_all_equal(arr: any[]) {
-  if (arr.length === 0)
-    throw new Error(`Empty array invalid for: all_equal(${Deno.inspect(arr)})`)
-
-  const init = arr[0];
-  for (const x of arr) {
-    if (x !== init)
-      return false;
-  }
-  return true;
-} // export function
-
 export function zip(...arrs: Array<any[]>) {
   const lengths = arrs.map(x => x.length)
   if (lengths.length === 0)
     throw new Error(`No arrays available to be joined.`);
-  if (!is_all_equal(lengths))
+  if (!is.all_equal(lengths))
     throw new Error(`Arrays can't be join. Different lengths.`);
   if (lengths[0] === 0)
     throw new Error(`Empty arrays can't be combined/zipped: zip(${Deno.inspect(arrs).replaceAll(/^\[|\]$/g, '')})`);
@@ -310,16 +328,6 @@ export function remove_pattern(r: RegExp) {
   };
 } // export function
 
-export function is_any(f: (x: any) => boolean) : (x: any[]) => boolean {
-  return function (arr: any[]) {
-    for (const x of arr) {
-      if (f(x))
-        return true;
-    }
-    return false;
-  };
-} // export function
-
 export function group_by(k: string) {
   return function <T>(arr: Array<Record<string, T>>): Record<string, Record<string, T>> {
     const o = {} as Record<string, Record<string, T>>;
@@ -343,3 +351,4 @@ export function sort_by_key(k: string) {
     return (ak < bk) ? -1 : 1;
   } // return;
 } // export function
+

@@ -4,8 +4,8 @@ import {rearrange} from "./Array.ts";
 import {
   not,
   sum, map_length, count,
+  is as fis,
   pipe_function, max,
-  is_length_0, is_any,
   tail_count, split_whitespace
 } from "./Function.ts";
 
@@ -421,9 +421,9 @@ export class Table {
   raw: any[][];
 
   constructor(arr: any[] | any[][]) {
-    if ( is_any(not(Array.isArray))(arr) )
+    if ( fis.any(not(Array.isArray))(arr) )
       arr = arr.map(x => [x]);
-    if (arr.length === 0 || is_any(is_length_0)(arr))
+    if (arr.length === 0 || fis.any(fis.length_0)(arr))
       throw new Error(`Table may not be empty: ${Deno.inspect(arr)}`);
     this.raw = arr;
   } // constructor

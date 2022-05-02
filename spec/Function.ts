@@ -2,9 +2,8 @@ import { describe, it, equals, matches } from "../src/Spec.ts";
 import {
   zip,
   not, or, and,
-  is_number, is_string, is_null,
-  is_true, is_false, is_boolean,
-  head_indexes, tail_indexes, is_all_equal,
+  is,
+  head_indexes, tail_indexes,
   count, tail_count, count_start_end
 } from "../src/Function.ts";
 
@@ -78,27 +77,27 @@ it("throws an error if arrays are empty", () => {
 });
 
 // =============================================================================
-describe("is_number");
+describe("is.number");
 // =============================================================================
 
 it("returns true if value type is: number", () => {
-  equals(is_number(5), true);
+  equals(is.number(5), true);
 });
 
 it("returns false if value type is: string", () => {
-  equals(is_number("5"), false);
+  equals(is.number("5"), false);
 });
 
 // =============================================================================
-describe("is_string");
+describe("is.string");
 // =============================================================================
 
 it("returns true if value type is: string", () => {
-  equals(is_string("6"), true);
+  equals(is.string("6"), true);
 });
 
 it("returns false if value type is: number", () => {
-  equals(is_string(6), false);
+  equals(is.string(6), false);
 });
 
 // =============================================================================
@@ -106,17 +105,17 @@ describe("not");
 // =============================================================================
 
 it("returns true if origin function returns false", () => {
-  const f = not(is_number)
+  const f = not(is.number)
   equals(f("5"), true)
 });
 
 it("returns false if one of the functions returns true", () => {
-  const f = not(is_number, is_string, is_null)
+  const f = not(is.number, is.string, is.null)
   equals(f(null), false)
 });
 
 it("returns true if all of the functions returns false", () => {
-  const f = not(is_number, is_string, is_null)
+  const f = not(is.number, is.string, is.null)
   equals(f(undefined), true)
 });
 
@@ -126,17 +125,17 @@ describe("and");
 // =============================================================================
 
 it("returns true if origin function returns true", () => {
-  const f = and(is_number)
+  const f = and(is.number)
   equals(f(5), true)
 });
 
 it("returns true if all of the functions returns true", () => {
-  const f = and(is_true, is_boolean, not(is_null))
+  const f = and(is.true, is.boolean, not(is.null))
   equals(f(true), true)
 });
 
 it("returns false if one of the functions returns false", () => {
-  const f = and(is_true, is_boolean, is_false)
+  const f = and(is.true, is.boolean, is.false)
   equals(f(true), false)
 });
 
@@ -145,17 +144,17 @@ describe("or");
 // =============================================================================
 
 it("returns true if origin function returns true", () => {
-  const f = or(is_number)
+  const f = or(is.number)
   equals(f(5), true)
 });
 
 it("returns true if one of the functions returns true", () => {
-  const f = or(is_number, is_string, is_null)
+  const f = or(is.number, is.string, is.null)
   equals(f(null), true)
 });
 
 it("returns false if all of the functions returns false", () => {
-  const f = or(is_number, is_string, is_null)
+  const f = or(is.number, is.string, is.null)
   equals(f(undefined), false)
 });
 
@@ -178,28 +177,28 @@ it("returns an array of the beginning indexes", function () {
 });
 
 // =============================================================================
-describe("is_all_equal");
+describe("is.all_equal");
 // =============================================================================
 
 it("returns true if all the values are equals", function () {
-  const actual = is_all_equal("a a a a".split(' '));
+  const actual = is.all_equal("a a a a".split(' '));
   equals(actual, true);
 });
 
 it("returns true if only one value", function () {
-  const actual = is_all_equal(["a"]);
+  const actual = is.all_equal(["a"]);
   equals(actual, true);
 });
 
 it("returns false if one of the values is different", function () {
-  const actual = is_all_equal("a a b a".split(' '));
+  const actual = is.all_equal("a a b a".split(' '));
   equals(actual, false);
 });
 
 it("throws an error if array is empty", function () {
   let msg = "no error thrown";
   try {
-    is_all_equal([]);
+    is.all_equal([]);
   } catch (e) {
     msg = e.message;
   }
