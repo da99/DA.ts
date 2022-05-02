@@ -1379,7 +1379,7 @@ export function is_symbolic_link(raw: string) {
   }
 } // export function
 
-export function default_read_text(default_x: any, file_path: string) {
+export function default_read_file(default_x: any, file_path: string) {
   try {
     return Deno.readTextFileSync(file_path);
   } catch (e) {
@@ -1513,16 +1513,3 @@ export async function download(url: string, file?: string) {
 } // export async function
 
 
-
-
-// function human_fs_arg(x: string): string {
-//   const a = (x.at(-1) === '/') ? "dir" : "file";
-//   const b = (is_exist(x)) ? '' : '?';
-//   const si = x.indexOf('/');
-//   const s = (si > -1 && si < x.length - 1) ? '/' : '';
-//   return `${s}${a}${b}`;
-// } // function
-//
-// function human_fs_args(a: string, b: string): string {
-//   return [a,b].map(human_fs_arg).join(' -> ');
-// } // function
