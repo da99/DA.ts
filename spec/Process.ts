@@ -1,39 +1,48 @@
 
-import { describe, it } from "../src/Spec.ts";
-import { daEquals } from "./_.helper.ts";
+import { describe, it, equals } from "../src/Spec.ts";
 import { throw_on_fail, process } from "../src/Shell.ts";
 
 // =============================================================================
-describe("run");
+describe("process");
 
-it("accepts a string", async () => {
+it("accepts a string as a command.", async () => {
   const {stdout} = await process("echo a b c");
-  daEquals(stdout, "a b c\n");
+  equals(stdout, "a b c\n");
 });
 
-it("accepts a Array<string>", async () => {
+it("accepts a Array<string> as a command.", async () => {
   const {stdout} = await process(["echo", "1", "2", "3"]);
-  daEquals(stdout, "1 2 3\n");
+  equals(stdout, "1 2 3\n");
+});
+
+it("accepts 'piped' as an option.", async () => {
+  const {stdout} = await process(["echo", "1", "2", "3"], "piped");
+  equals(stdout, "1 2 3\n");
+});
+
+it("accepts {stdout: 'piped', stderr: 'piped'} as an option.", async () => {
+  const {stdout} = await process(["echo", "1", "2", "3"], {stdout: 'piped', stderr: 'piped'});
+  equals(stdout, "1 2 3\n");
 });
 
 it("returns STDOUT output", async function () {
   const {stdout} = await process("echo 4 5 6");
-  daEquals(stdout, "4 5 6\n");
+  equals(stdout, "4 5 6\n");
 }); // it async
 
 it("returns STDERR output", async function () {
   const {stderr} = await process(["node", "1", "2", "3"]);
-  daEquals(stderr.match("Error: Cannot find module"), ["Error: Cannot find module"]);
+  equals(stderr.match("Error: Cannot find module"), ["Error: Cannot find module"]);
 }); // it async
 
 it("returns status w/code", async function () {
   const {status} = await process(["node", "1", "2", "3"]);
-  daEquals(status.code, 1);
+  equals(status.code, 1);
 }); // it async
 
 it("returns status w/success boolean", async function () {
   const {status} = await process(["node", "1", "2", "3"]);
-  daEquals(status.success, false);
+  equals(status.success, false);
 }); // it async
 
 // =============================================================================
@@ -47,6 +56,6 @@ it("throws if result is not success", async function () {
     msg = err.message;
   }
   const actual = (msg || "").split("\n")[0];
-  daEquals(actual, "Exit 1");
+  equals(actual, "Exit 1");
 }); // it async
 

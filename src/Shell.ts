@@ -1105,20 +1105,37 @@ export async function throw_on_fail(pr: Promise<Process_Result>) {
   throw new Error(msgs);
 } // export async function
 
+export type Process_IO =  number | "inherit" | "piped" | "null";
+export interface Process_Options {
+  stderr?: Process_IO;
+  stdout?: Process_IO;
+};
+
 export async function process(
   arr:     string | string[],
-  std:     "inherit" | "piped" | "null" | number = "piped"
+  std:     Process_Options | Process_IO = "piped"
 ): Promise<Process_Result> {
   const cmd    = flatten_cmd([arr]);
   let stdout   = "";
   let stderr   = "";
+  let opts: Process_Options = {
+    stdout: "piped",
+    stderr: "inherit"
+  };
 
-  if (IS_VERBOSE === "verbose") {
-      console.error(`=== ${yellow(cmd.join(" "))} ===`);
+  if (typeof std === "string" || typeof std === "number") {
+    opts.stdout = std,
+    opts.stderr = std
+  } else {
+    Object.assign(opts, std);
+  }
+
+  if (IS_VERBOSE) {
+    console.error(`=== ${yellow(cmd.join(" "))} ===`);
   } // if
 
   try {
-    const process = Deno.run({ cmd, stderr: std, stdout: std });
+    const process = Deno.run(Object.assign({cmd}, opts));
     const status  = await process.status();
 
     // NOTE: For some reason, the process is never closed automatically.
@@ -1126,9 +1143,11 @@ export async function process(
     // we need.
     process.close();
 
-    if (std === "piped") {
+    if (opts.stdout === "piped") {
       stdout = new TextDecoder().decode(await process.output());
-      stderr =  new TextDecoder().decode(await process.stderrOutput());
+    } // if
+    if (opts.stderr === "piped") {
+      stderr = new TextDecoder().decode(await process.stderrOutput());
     } // if
 
     if (IS_VERBOSE === "verbose" || IS_VERBOSE === "verbose-exit" || (!status.success && IS_VERBOSE === "verbose-fail" )) {
