@@ -3,7 +3,7 @@
 // import { ensureDirSync } from "https://deno.land/std/fs/mod.ts";
 // import * as path from "https://deno.land/std/path/mod.ts";
 //
-import {download, run, yellow, bold} from "../src/Shell.ts";
+import {download, process, yellow, bold} from "../src/Shell.ts";
 
 async function prune() {
   for await (const x of Deno.readDir(Deno.cwd())) {
@@ -18,7 +18,7 @@ async function prune() {
 } // async function
 
 async function _run(cmd: string) {
-  const result = await run(cmd, "inherit", "verbose");
+  const result = await process(cmd, "inherit");
   if (result.success) {
     return true;
   }

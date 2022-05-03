@@ -1,7 +1,7 @@
 
 import nunjucks from "https://deno.land/x/nunjucks/mod.js";
 import {split_whitespace} from "./Function.ts";
-import {create, write, download, list_files, base, ext, throw_on_fail, run} from "./Shell.ts";
+import {create, write, download, list_files, base, ext, throw_on_fail, process} from "./Shell.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 import { bold, yellow } from "https://deno.land/std/fmt/colors.ts";
 
@@ -12,7 +12,7 @@ const DEFAULT_OPTIONS = {
 };
 
 function _run(cmd: string) {
-  return throw_on_fail(run(cmd, "inherit", "verbose"));
+  return throw_on_fail(process(cmd, "inherit"));
 } // async function
 
 export async function css(file_path: string) {

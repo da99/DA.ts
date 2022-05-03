@@ -6,7 +6,7 @@ import {
 
 import {
   yellow, bold, green, bgRed, white,
-  join, throw_on_fail, run
+  join, throw_on_fail, process
 } from "../src/Shell.ts";
 
 import {
@@ -18,7 +18,7 @@ import {
 
 import nunjucks from "https://deno.land/x/nunjucks/mod.js";
 
-import type {Result} from "../src/Shell.ts";
+import type {Process_Result} from "../src/Shell.ts";
 import type {Context} from "https://deno.land/x/oak/context.ts";
 
 const NUN = nunjucks.configure({noCache: true});
@@ -33,7 +33,7 @@ async function print(s: string) {
 } // async function
 
 function _run(cmd: string) {
-  return throw_on_fail(run(cmd, "piped", "quiet"));
+  return throw_on_fail(process(cmd, "piped"));
 } // function
 
 const CONFIG = {
@@ -55,10 +55,10 @@ async function read_file(file_path: string): Promise<string | null> {
   return await Deno.readTextFile(file_path);
 } // function
 
-export async function render(file_path: string): Promise<Result> {
+export async function render(file_path: string): Promise<Process_Result> {
   const cmd: string[] = CONFIG.render_cmd.slice();
   cmd.push(file_path);
-  return await run(cmd, "piped", "verbose-fail");
+  return await process(cmd, "piped");
 } // export async function
 
 export async function start(port: number, render_cmd: string[]) {

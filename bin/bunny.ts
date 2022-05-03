@@ -4,7 +4,7 @@
 import {meta_url, match, not_found, inspect, IS_VERBOSE} from "../src/Shell.ts";
 import { green, red, yellow, bold } from "https://deno.land/std/fmt/colors.ts";
 import {content_type, human_bytes, MB, sort_by_key, count} from "../src/Function.ts";
-import {fd, table, shell_lines, shell_string, run} from "../src/Shell.ts";
+import {fd, shell_lines, shell_string, process} from "../src/Shell.ts";
 import { readableStreamFromReader } from "https://deno.land/std/streams/conversion.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 import {
@@ -19,8 +19,10 @@ meta_url(import.meta.url);
 
 export type CONFIG_OPTIONS    = "PROJECT_NAME" | "BUNNY_DIR" | "BUNNY_URL" | "BUNNY_KEY" | "VERBOSE";
 export const FILE_TS          = ".FILES.ts";
-export const GIT_PROJECT_NAME = (await shell_lines("git", "remote get-url origin", false))
-  .default_non_empty_string(null, (x: string) => x.replace(/\.git$/, '').split('/').pop());
+export const GIT_PROJECT_NAME: undefined | string = (await shell_lines("git", "remote get-url origin", false))
+  .map(
+    (x: string) => x.replace(/\.git$/, '').split('/').pop()
+  ).pop();
 
 export interface Bunny_Response {
   HttpCode: 200 | 201 | 400 | 404;
@@ -170,7 +172,7 @@ if (match('export files [-v]')) {
   const body = `export const FILES = ${JSON.stringify(exports)};`
   Deno.writeTextFileSync(FILE_TS, body);
   if (IS_VERBOSE)
-    run(`bat ${FILE_TS}`, "inherit", "verbose-fail");
+    process(`bat ${FILE_TS}`, "inherit", "verbose-fail");
 } // if
 
 // =============================================================================
@@ -244,8 +246,8 @@ function ensure_valid_dir() {
 } // function
 
 export async function uploadable_local_files(): Promise<Local_File[]> {
-  const remote    = await remote_files();
-  const local     = await local_files();
+  const remote       = await remote_files();
+  const local        = await local_files();
   const remote_paths = remote.map(bf => bf.ObjectName);
   return local.filter(lf => !remote_paths.includes(lf.remote_path));
 } // export async
@@ -254,25 +256,24 @@ export async function local_files(): Promise<Local_File[]> {
   ensure_valid_dir();
 
   const local_sha_filename = (await fd(`--max-depth 4 --type f --size -15m --exclude *.ts --exec sha256sum {} ;`))
-  .split('  ')
-  .column(0, UP_CASE)
-  .column(1, remove_pattern(begin_dot_slash))
-  .arrange(1,0,1)
-  .column('last', path_to_filename('.'));
+  .map((str: string) => {
+    const arr = str.split('  ');
+    arr[0] = arr[0].toUpperCase()
+    arr[1] = remove_pattern(begin_dot_slash)(arr[1]);
+    return [arr[1], arr[0], path_to_filename('.')(arr[1])];
+  });
 
   const stat = await Promise.all(
-    local_sha_filename.raw_column("first")
+    local_sha_filename.map(x => x[0])
     .map(r => Deno.stat(r))
   );
 
-  const file_table = local_sha_filename.push_columns("right", table(stat));
-
-  return file_table.raw.map(row => ({
+  return local_sha_filename.map((row, i) => ({
     local_path:   row[0],
     url:          path.join(config('UPLOAD_PATH'), `${row[1]}.${row[2]}`),
     remote_path:  `${row[1]}.${row[2]}`,
     sha256:       row[1],
-    bytes:        row[3].size,
+    bytes:        stat[i].size,
     content_type: content_type(row[0]),
   })).sort(sort_by_key("local_path"));
 } // export async function

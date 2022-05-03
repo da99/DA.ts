@@ -1,9 +1,9 @@
 
 // import * as path from "https://deno.land/std/path/mod.ts";
 import {
-  run, meta_url, match, not_found, inspect, IS_VERBOSE, base, cwd,
+  process, meta_url, match, not_found, inspect, IS_VERBOSE, base, cwd,
   green, red, yellow, bold,
-  fd, table, shell_string, shell_lines
+  fd, shell_string, shell_lines
 } from "../src/Shell.ts";
 
 import {
@@ -149,25 +149,28 @@ export async function local_files(): Promise<Local_File[]> {
   ensure_valid_dir();
 
   const local_sha_filename = (await fd(`--max-depth 4 --type f --size -15m --exclude *.ts --exec sha256sum {} ;`))
-  .split('  ')
-  .column(0, UP_CASE)
-  .column(1, remove_pattern(begin_dot_slash))
-  .arrange(1,0,1)
-  .column('last', path_to_filename('.'));
+  .map(s => {
+    const arr = s.split('  ');
+    arr[0] = arr[0].toUpperCase();
+    arr[1] = arr[1].replace(begin_dot_slash, '');
+    return [
+      arr[1],
+      arr[0],
+      path_to_filename('.')(arr[1])
+    ];
+  });
 
   const stat = await Promise.all(
-    local_sha_filename.raw_column("first")
+    local_sha_filename.map(arr => arr[0])
     .map(r => Deno.stat(r))
   );
 
-  const file_table = local_sha_filename.push_columns("right", table(stat));
-
-  return file_table.raw.map(row => ({
+  return local_sha_filename.map((row, i) => ({
     local_path:   row[0],
     url:          path.join(config('UPLOAD_PATH'), `${row[1]}.${row[2]}`),
     remote_path:  `${row[1]}.${row[2]}`,
     sha256:       row[1],
-    bytes:        row[3].size,
+    bytes:        stat[i].size,
     content_type: content_type(row[0]),
   })).sort(sort_by_key("local_path"));
 } // export async function
@@ -345,5 +348,6 @@ export function verbose_log_remote_file(bf: Bunny_File) {
 
 export async function git_project_name() {
   return (await shell_lines("git", "remote get-url origin", false))
-  .default_non_empty_string(null, (x: string) => x.replace(/\.git$/, '').split('/').pop());
+  .map(x => x.replace(/\.git$/, '').split('/').pop())
+  .pop();
 } // export async function

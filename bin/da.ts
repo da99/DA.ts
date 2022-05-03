@@ -4,7 +4,7 @@ import {
   inspect,meta_url, match, values, not_found,
   sh, echo, list_files,
   glob, cd, join,
-  pgrep_f, pstree_p, keep_alive, run, exit,
+  pgrep_f, pstree_p, keep_alive, process, exit,
   yellow, bold
 } from "../src/Shell.ts";
 
@@ -75,12 +75,12 @@ if (match(
 } // if
 
 if (match("file server stop")) {
-  const {code} = await run(split_whitespace(`pkill -INT -f`).concat(['^deno run .+ file-server start .+']), "inherit", "verbose-exit");
+  const {code} = await process(split_whitespace(`pkill -INT -f`).concat(['^deno run .+ file-server start .+']), "inherit");
   Deno.exit(code);
 } // if
 
 if (match("file server reload www-browser")) {
-  await exit(run(['pkill', '-USR1', '-f', '^deno run .+bin/_.file_server.ts'], "inherit", "verbose"));
+  await exit(process(['pkill', '-USR1', '-f', '^deno run .+bin/_.file_server.ts'], "inherit"));
 } // if
 
 // =============================================================================
