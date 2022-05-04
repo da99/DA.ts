@@ -1,14 +1,12 @@
 #!/usr/bin/env -S deno run --allow-run=fd,find,git,bat --allow-net=storage.bunnycdn.com --allow-env --allow-read=./ --allow-write=./
 
 // import * as path from "https://deno.land/std/path/mod.ts";
-import {meta_url, match, not_found, inspect, IS_VERBOSE} from "../src/Shell.ts";
+import {meta_url, match, not_found, inspect, IS_VERBOSE, fd, sh} from "../src/Shell.ts";
 import { green, red, yellow, bold } from "https://deno.land/std/fmt/colors.ts";
 import {content_type, human_bytes, MB, sort_by_key, count} from "../src/Function.ts";
-import {fd, shell_lines, shell_string, process} from "../src/Shell.ts";
 import { readableStreamFromReader } from "https://deno.land/std/streams/conversion.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 import {
-  UP_CASE,
   remove_pattern,
   begin_dot_slash,
   path_to_filename,
@@ -19,7 +17,8 @@ meta_url(import.meta.url);
 
 export type CONFIG_OPTIONS    = "PROJECT_NAME" | "BUNNY_DIR" | "BUNNY_URL" | "BUNNY_KEY" | "VERBOSE";
 export const FILE_TS          = ".FILES.ts";
-export const GIT_PROJECT_NAME: undefined | string = (await shell_lines("git", "remote get-url origin", false))
+export const GIT_PROJECT_NAME: undefined | string = (await sh(["git", "remote get-url origin"], 'piped', 'inherit', false))
+  .lines
   .map(
     (x: string) => x.replace(/\.git$/, '').split('/').pop()
   ).pop();
@@ -171,8 +170,7 @@ if (match('export files [-v]')) {
   const exports = await export_files();
   const body = `export const FILES = ${JSON.stringify(exports)};`
   Deno.writeTextFileSync(FILE_TS, body);
-  if (IS_VERBOSE)
-    process(`bat ${FILE_TS}`, "inherit", "verbose-fail");
+  await sh(`bat ${FILE_TS}`, "inherit");
 } // if
 
 // =============================================================================
@@ -184,7 +182,7 @@ not_found();
 // =============================================================================
 
 export async function project_name() {
-  const name = (await shell_string("git", "remote get-url origin"))
+  const name = (await sh(["git", "remote get-url origin"])).stdout
   .replace(/\.git$/, '').split('/').pop();
   if (typeof name === "string" && name.length > 0)
     return name;
@@ -256,6 +254,7 @@ export async function local_files(): Promise<Local_File[]> {
   ensure_valid_dir();
 
   const local_sha_filename = (await fd(`--max-depth 4 --type f --size -15m --exclude *.ts --exec sha256sum {} ;`))
+  .lines
   .map((str: string) => {
     const arr = str.split('  ');
     arr[0] = arr[0].toUpperCase()

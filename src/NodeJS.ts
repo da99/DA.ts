@@ -57,4 +57,5 @@ export async function install_latest() {
   console.error(version);
   await sh(`npm update -g`, 'inherit');
 
+
 } // export async function

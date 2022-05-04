@@ -1,9 +1,9 @@
 
 // import * as path from "https://deno.land/std/path/mod.ts";
 import {
-  process, meta_url, match, not_found, inspect, IS_VERBOSE, base, cwd,
-  green, red, yellow, bold,
-  fd, shell_string, shell_lines
+  sh, inspect, IS_VERBOSE, base, cwd,
+  yellow, bold,
+  fd
 } from "../src/Shell.ts";
 
 import {
@@ -13,8 +13,6 @@ import {
 import { readableStreamFromReader } from "https://deno.land/std/streams/conversion.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 import {
-  UP_CASE,
-  remove_pattern,
   begin_dot_slash,
   path_to_filename,
   env_or_throw
@@ -75,14 +73,6 @@ export interface Exported_File {
 // =============================================================================
 // Configuration-related functions:
 // =============================================================================
-
-export async function project_name() {
-  const name = (await shell_string("git", "remote get-url origin"))
-  .replace(/\.git$/, '').split('/').pop();
-  if (typeof name === "string" && name.length > 0)
-    return name;
-  throw new Error(`No project name could be found.`);
-} // export async function
 
 export function config(k: "UPLOAD_PATH" | CONFIG_OPTIONS): string {
   switch (k) {
@@ -149,6 +139,7 @@ export async function local_files(): Promise<Local_File[]> {
   ensure_valid_dir();
 
   const local_sha_filename = (await fd(`--max-depth 4 --type f --size -15m --exclude *.ts --exec sha256sum {} ;`))
+  .lines
   .map(s => {
     const arr = s.split('  ');
     arr[0] = arr[0].toUpperCase();
@@ -347,7 +338,22 @@ export function verbose_log_remote_file(bf: Bunny_File) {
 } // export function
 
 export async function git_project_name() {
-  return (await shell_lines("git", "remote get-url origin", false))
-  .map(x => x.replace(/\.git$/, '').split('/').pop())
+  return (await sh(["git", "remote get-url origin"], 'piped', 'piped', false))
+  .stdout
+  .trim()
+  .replace(/\.git$/, '')
+  .split('/')
   .pop();
+} // export async function
+
+export async function project_name() {
+  const name = (await sh(["git", "remote get-url origin"]))
+  .stdout
+  .trim()
+  .replace(/\.git$/, '')
+  .split('/')
+  .pop();
+  if (typeof name === "string" && name.length > 0)
+    return name;
+  throw new Error(`No project name could be found.`);
 } // export async function

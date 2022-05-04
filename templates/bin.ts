@@ -2,7 +2,7 @@
 
 // import { sleep } from "https://deno.land/x/sleep/mod.ts";
 import {
-  process, meta_url, about, match, values, not_found,
+  sh, meta_url, about, match, values, not_found,
   yellow, bold, bgRed, white
 } from "{DA_PATH}/src/Shell.ts";
 
@@ -11,7 +11,7 @@ import * as path from "https://deno.land/std/path/mod.ts";
 meta_url(import.meta.url);
 
 if (match("hello")) {
-  await process(`deno run something`);
+  await sh(`deno run something`);
 } // if
 
 
