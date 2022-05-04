@@ -1,7 +1,7 @@
 
 import nunjucks from "https://deno.land/x/nunjucks/mod.js";
 import {split_whitespace} from "./Function.ts";
-import {create, write, download, list_files, base, ext, throw_on_fail, process} from "./Shell.ts";
+import {create, write, download, list_files, base, ext, sh} from "./Shell.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 import { bold, yellow } from "https://deno.land/std/fmt/colors.ts";
 
@@ -11,19 +11,14 @@ const DEFAULT_OPTIONS = {
   "html":        {}
 };
 
-function _run(cmd: string) {
-  return throw_on_fail(process(cmd, "inherit"));
-} // async function
 
 export async function css(file_path: string) {
-  const { success, stdout, stderr } = await _run(`npx lessc ${file_path.replace(/\.css$/, ".less")}`);
-  if (!success)
-    throw new Error(stderr);
+  const { stdout } = await sh(`npx lessc ${file_path.replace(/\.css$/, ".less")}`);
   return stdout;
 } // export async function
 
 export async function js(file_path: string) {
-  const { stdout } = await _run(`deno bundle ${file_path.replace(/\.js$/, ".ts")}`);
+  const { stdout } = await sh(`deno bundle ${file_path.replace(/\.js$/, ".ts")}`);
   return stdout;
 } // export async function
 
@@ -40,7 +35,7 @@ function print_wrote(x: string) {
 export async function build_worker(WORKER_TS: string, WORKER_JS: string) {
   const filename = WORKER_TS;
   const new_file = WORKER_JS;
-  const { stdout } = await _run(`deno bundle ${filename}`);
+  const { stdout } = await sh(`deno bundle ${filename}`);
   write.file(new_file, stdout);
   print_wrote(new_file);
 } // export async function

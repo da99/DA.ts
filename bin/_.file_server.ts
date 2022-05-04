@@ -6,7 +6,7 @@ import {
 
 import {
   yellow, bold, green, bgRed, white,
-  join, throw_on_fail, process
+  join, sh
 } from "../src/Shell.ts";
 
 import {
@@ -16,12 +16,13 @@ import {
   ServerSentEventTarget
 } from "https://deno.land/x/oak/mod.ts";
 
+import {writeAll} from 'https://deno.land/std/streams/conversion.ts';
 import nunjucks from "https://deno.land/x/nunjucks/mod.js";
 
 import type {Process_Result} from "../src/Shell.ts";
-import type {Context} from "https://deno.land/x/oak/context.ts";
+// import type {Context} from "https://deno.land/x/oak/context.ts";
 
-const NUN = nunjucks.configure({noCache: true});
+// const NUN = nunjucks.configure({noCache: true});
 
 const watches: Array<ServerSentEventTarget> = [];
 
@@ -29,12 +30,8 @@ const router = new Router();
 const app    = new Application();
 
 async function print(s: string) {
-  return await Deno.writeAll(Deno.stderr, new TextEncoder().encode(s));
+  return await writeAll(Deno.stderr, new TextEncoder().encode(s));
 } // async function
-
-function _run(cmd: string) {
-  return throw_on_fail(process(cmd, "piped"));
-} // function
 
 const CONFIG = {
   "port": 5555,
@@ -58,7 +55,7 @@ async function read_file(file_path: string): Promise<string | null> {
 export async function render(file_path: string): Promise<Process_Result> {
   const cmd: string[] = CONFIG.render_cmd.slice();
   cmd.push(file_path);
-  return await process(cmd, "piped");
+  return await sh(cmd, "piped", "inherit");
 } // export async function
 
 export async function start(port: number, render_cmd: string[]) {

@@ -6,7 +6,7 @@ import {
   sum, map_length, count,
   is as fis,
   pipe_function, max,
-  tail_count, split_whitespace
+  tail_count, split_whitespace, split_lines
 } from "./Function.ts";
 
 import * as path from "https://deno.land/std/path/mod.ts";
@@ -25,6 +25,13 @@ import {join, common} from "https://deno.land/std/path/mod.ts";
 export {join, common};
 
 import type {Arrange_Spec} from "./Array.ts";
+
+export type Process_IO =  number | "inherit" | "piped" | "null";
+
+export interface Process_Options {
+  stderr?: Process_IO;
+  stdout?: Process_IO;
+};
 
 // =============================================================================
 // Top level constants and variables:
@@ -53,6 +60,7 @@ export interface Process_Result {
   stderr:  string;
   success: boolean;
   code:    number;
+  readonly lines: string[];
 }
 export interface SHELL_OPTIONS {
   throw?: boolean;
@@ -64,47 +72,6 @@ export interface SHELL_OPTIONS {
 // =============================================================================
 // Shell functions:
 // =============================================================================
-
-function print_stderr(r: Process_Result): void {
-  if (r.stderr !== "")
-    console.error(`--- ${bold(r.cmd[0])} ${Deno.inspect(r.cmd.slice(1))}: ${yellow(r.stderr)}`);
-} // function
-
-export async function shell(
-  cmd:  string,
-  args: string | string[],
-  throwable = true
-): Promise<void> {
-  args = split_cmd(args);
-  const proc = process([cmd].concat(args), "inherit");
-  await ((throwable) ? throw_on_fail(proc): proc);
-} // export async
-
-export async function shell_string(
-  cmd:  string,
-  args: string | string[],
-  throwable = true
-): Promise<string> {
-  args = split_cmd(args);
-  const proc = process([cmd].concat(args), "piped");
-  const result = (await ((throwable) ? throw_on_fail(proc): proc));
-  print_stderr(result)
-  return result.stdout.trim();
-} // export async
-
-export async function shell_lines(
-  cmd:  string,
-  args: string | string[],
-  throwable = true
-): Promise<string[]> {
-  return (
-    await shell_string(cmd, args, throwable)
-  ).trim().split('\n');
-} // export async
-
-export async function sh(cmd: string | string[]): Promise<Process_Result> {
-  return await throw_on_fail(process(cmd, "piped"));
-} // async function
 
 export function flatten_cmd(args: Array<string | string[]>) {
   return args.reduce((prev: string[], curr: string | string[]) => {
@@ -121,15 +88,14 @@ export function flatten_cmd(args: Array<string | string[]>) {
 // =============================================================================
 
 export const create = {
-  shell_lines_cmd: function create_shell_lines_cmd(s: string) {
-    return function (args: string | string[]): Promise<string[]> {
-      return shell_lines(s, args);
-    }
-  },
-
-  sh_cmd: function create_sh_cmd(cmd: string) {
+  sh: function create_sh_cmd(cmd: string, out: Process_IO = "piped", err: Process_IO = "piped", throw_on_fail = true) {
     return function (args: string | string[]) {
-      return throw_on_fail(process([cmd, args].flat(), "piped"));
+      return sh(
+        [cmd].concat(split_cmd(args)),
+        out,
+        err,
+        throw_on_fail
+      );
     }
   },
 
@@ -956,9 +922,8 @@ export async function download(url: string, file?: string) {
   return true;
 } // export async function
 
-
-export const fd     = create.shell_lines_cmd('fd');
-export const find   = create.shell_lines_cmd('find');
+export const fd     = create.sh('fd', 'piped', 'inherit', true);
+export const find   = create.sh('find', 'piped', 'inherit', true);
 
 // =============================================================================
 // Keep_Alive_Process
@@ -1058,7 +1023,7 @@ export async function keep_alive(...args: Array<string | string[]>) {
 } // export async
 
 export async function pgrep_f(pattern: string): Promise<number[]> {
-  const io = await process(["pgrep", "-f", pattern], "piped");
+  const io = await sh(["pgrep", "-f", pattern], "piped");
   return split_whitespace(io.stdout).map(x => parseInt(x)).filter(x => x !== Deno.pid);
 } // export async function
 
@@ -1068,7 +1033,7 @@ export async function pgrep_f(pattern: string): Promise<number[]> {
  * function.
  */
 export async function pstree_p(pid: string | number): Promise<number[]> {
-  const result = await process(`pstree --hide-threads --ascii -p ${pid}`);
+  const result = await sh(`pstree --hide-threads --ascii -p ${pid}`);
   let pids: number[] = [];
   if (!result.success)
     return pids;
@@ -1084,11 +1049,6 @@ export async function pstree_p(pid: string | number): Promise<number[]> {
   return pids;
 } // export async function
 
-export async function exit(pr: Promise<Process_Result>) {
-  const result = await pr;
-  Deno.exit(result.code);
-} // export async function
-
 export async function exit_on_fail(pr: Promise<Process_Result>) {
   const result = await pr;
   if (!result.success) {
@@ -1097,75 +1057,71 @@ export async function exit_on_fail(pr: Promise<Process_Result>) {
   return result;
 } // export async function
 
-export async function throw_on_fail(pr: Promise<Process_Result>) {
-  const r = await pr;
-  if (r.success)
-    return r;
-  const msgs = [`Exit ${r.status.code}`, r.stdout, r.stderr].join("\n").trim();
-  throw new Error(msgs);
-} // export async function
-
-export type Process_IO =  number | "inherit" | "piped" | "null";
-export interface Process_Options {
-  stderr?: Process_IO;
-  stdout?: Process_IO;
-};
-
-export async function process(
-  arr:     string | string[],
-  std:     Process_Options | Process_IO = "piped"
+export async function sh(
+  cmd:     string | string[],
+  out: Process_IO | "exit" = "piped",
+  err: Process_IO = "inherit",
+  throw_on_fail: boolean = true
 ): Promise<Process_Result> {
-  const cmd    = flatten_cmd([arr]);
+  const cmd_args    = split_cmd(cmd);
   let stdout   = "";
   let stderr   = "";
-  let opts: Process_Options = {
-    stdout: "piped",
-    stderr: "inherit"
-  };
-
-  if (typeof std === "string" || typeof std === "number") {
-    opts.stdout = std,
-    opts.stderr = std
-  } else {
-    Object.assign(opts, std);
-  }
+  let do_exit  = false;
 
   if (IS_VERBOSE) {
-    console.error(`=== ${yellow(cmd.join(" "))} ===`);
+    console.error(`=== ${yellow(cmd_args.join(" "))} ===`);
   } // if
 
-  try {
-    const process = Deno.run(Object.assign({cmd}, opts));
-    const status  = await process.status();
-
-    // NOTE: For some reason, the process is never closed automatically.
-    // At this point, we can close it manually since we have all the output
-    // we need.
-    process.close();
-
-    if (opts.stdout === "piped") {
-      stdout = new TextDecoder().decode(await process.output());
-    } // if
-    if (opts.stderr === "piped") {
-      stderr = new TextDecoder().decode(await process.stderrOutput());
-    } // if
-
-    if (IS_VERBOSE === "verbose" || IS_VERBOSE === "verbose-exit" || (!status.success && IS_VERBOSE === "verbose-fail" )) {
-      print_status(cmd, process.pid, status);
-    } // if
-
-    return {
-      cmd,
-      status,
-      process,
-      stdout,
-      stderr,
-      success: status.success,
-      code:    status.code
-    };
-  } catch (e) {
-    console.error(`=== ${yellow(inspect(cmd))}`);
-    throw e;
+  // try {
+  // } catch (e) {
+  //   console.error(`=== ${yellow(inspect(cmd))}`);
+  //   throw e;
+  // }
+  if (out === "exit") {
+    do_exit = true;
+    out = "inherit";
   }
+
+  const process = Deno.run(Object.assign({cmd: cmd_args}, {stdout: out, stderr: err}));
+  const status  = await process.status();
+
+  // NOTE: For some reason, the process is never closed automatically.
+  // At this point, we can close it manually since we have all the output
+  // we need.
+  process.close();
+
+  if (out === "piped") {
+    stdout = new TextDecoder().decode(await process.output());
+  } // if
+
+  if (err === "piped") {
+    stderr = new TextDecoder().decode(await process.stderrOutput());
+  } // if
+
+  if (IS_VERBOSE === "verbose" || IS_VERBOSE === "verbose-exit" || (!status.success && IS_VERBOSE === "verbose-fail" )) {
+    print_status(cmd_args, process.pid, status);
+  } // if
+
+  if (!status.success && throw_on_fail) {
+    throw new Error(`!!! Failed ${bgRed(status.code.toString())}: ${inspect(cmd_args)}`);
+  }
+
+  if (do_exit)
+    Deno.exit(status.code);
+
+  return {
+    cmd: cmd_args,
+    status,
+    process,
+    stdout,
+    stderr,
+    success: status.success,
+    code:    status.code,
+    get lines() {
+      if ("stdout" in this)
+        return split_lines(this.stdout);
+      return [];
+    }
+  };
 } // export
 

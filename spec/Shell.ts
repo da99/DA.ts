@@ -2,12 +2,12 @@
 import { describe, it, equals } from "../src/Spec.ts";
 
 import {
-  shell_string, shell_lines,
+  sh,
   fd, find,
 } from "../src/Shell.ts";
 
 import {
-  count
+  count, split_lines,
 } from "../src/Function.ts";
 
 function five_x_five(x: "a" | 0 = 0) {
@@ -23,43 +23,34 @@ function five_x_five(x: "a" | 0 = 0) {
 } // function
 
 // =============================================================================
-describe("shell_string");
+describe("sh.stdout");
 // =============================================================================
 
 it("returns string", async () => {
-  const actual = (await shell_string('ls', '-1'))
+  const actual = (await sh(['ls', '-1'])).stdout
   equals(typeof actual, 'string');
-})
-
-// =============================================================================
-describe("shell_lines");
-// =============================================================================
-
-it("returns Lines", async () => {
-  const actual = (await shell_lines('ls', '-1')).constructor
-  equals(actual, Array);
 })
 
 // =============================================================================
 describe("fd");
 // =============================================================================
 
-it("returns a string[]", async () => {
-  const actual = (await fd(`.ts$ src --max-depth 1`))
-  equals(actual.constructor, Array);
-})
-
-it("turns the output into values in the row", async () => {
-  const actual = (await fd(`.ts$ src --max-depth 1`)).filter(x => x === "src/Shell.ts")
+it("returns the stdout", async () => {
+  const actual = (await fd(`.ts$ src --max-depth 1`)).stdout.split('\n').filter(x => x === "src/Shell.ts")
   equals(actual, ["src/Shell.ts"]);
+});
+
+it("returns 'lines' as string[]", async () => {
+  const actual = (await fd(`.ts$ src --max-depth 1`));
+  equals(actual.lines.constructor, Array);
 })
 
 // =============================================================================
 describe("find");
 // =============================================================================
 
-it("returns a string[]", async () => {
-  const actual = (await find(`src -maxdepth 1 -name *.ts`)).constructor
-  equals(actual, Array);
+it("returns 'lines' as string[]", async () => {
+  const actual = (await find(`src -maxdepth 1 -name *.ts`))
+  equals(actual.lines.constructor, Array);
 })
 

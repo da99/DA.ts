@@ -2,7 +2,7 @@
 import { change_directory, describe, it, equals, matches } from "../src/Spec.ts";
 import {
   is,
-  sh, shell_string, stat,
+  sh,
   copy_file, copy_dir, copy_list,
   fetch_text, fetch_json,
   create, read, rename, del, write,
@@ -96,30 +96,9 @@ it("executes commands in ./tmp", async () => {
 
 it("returns the value of the function", async () => {
   const actual = await a_cd(create.dir("a/b/c/"), async () => {
-    return shell_string(`echo`, 'hello')
+    return sh(`echo hello`);
   });
-  equals(actual, "hello");
-});
-
-
-// =============================================================================
-describe("a_mk");
-// =============================================================================
-
-it("executes commands in ./tmp", async () => {
-  const contents = Date.now().toString();
-  await a_cd(create.dir("a/b/"), async () => {
-    return await Deno.writeTextFile("c.txt", contents);
-  });
-  const actual = read.file("a/b/c.txt");
-  equals(actual, contents);
-});
-
-it("returns the value of the function", async () => {
-  const actual = await a_cd(create.dir("a/b/c/"), async () => {
-    return shell_string(`echo`, 'hello')
-  });
-  equals(actual, "hello");
+  equals(actual.stdout, "hello\n");
 });
 
 // =============================================================================

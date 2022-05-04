@@ -3,7 +3,7 @@
 // import { ensureDirSync } from "https://deno.land/std/fs/mod.ts";
 // import * as path from "https://deno.land/std/path/mod.ts";
 //
-import {download, process, yellow, bold} from "../src/Shell.ts";
+import {download, sh, yellow, bold} from "../src/Shell.ts";
 
 async function prune() {
   for await (const x of Deno.readDir(Deno.cwd())) {
@@ -15,14 +15,6 @@ async function prune() {
     else
       Deno.removeSync(x.name);
   }
-} // async function
-
-async function _run(cmd: string) {
-  const result = await process(cmd, "inherit");
-  if (result.success) {
-    return true;
-  }
-  throw new Error(`Exited: ${result.code}`);
 } // async function
 
 export async function install_latest() {
@@ -58,12 +50,11 @@ export async function install_latest() {
     prune();
     console.error(`Downloading: ${NODE_DIR}`);
     await download(REMOTE_FILE, FILENAME);
-    await _run(`tar -xf ${FILENAME}`);
-    await _run(`ln -sf ${NODE_DIR} current`);
+    await sh(`tar -xf ${FILENAME}`, 'inherit');
+    await sh(`ln -sf ${NODE_DIR} current`, 'inherit');
   }
 
   console.error(version);
-  await _run(`npm update -g`);
-
+  await sh(`npm update -g`, 'inherit');
 
 } // export async function

@@ -11,6 +11,7 @@ create.dir("tmp/spec/");
 const cmd = Deno.args[0] || "full";
 
 import "./CLI.ts";
+import "./BIN.ts";
 import "./Array.ts";
 import "./Function.ts";
 import "./Process.ts";

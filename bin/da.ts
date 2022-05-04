@@ -1,11 +1,10 @@
 #!/usr/bin/env -S deno run --allow-run --allow-net --allow-read --allow-write=./
 
 import {
-  inspect,meta_url, match, values, not_found,
-  sh, echo, list_files,
-  glob, cd, join,
-  pgrep_f, pstree_p, keep_alive, process, exit,
-  yellow, bold
+  meta_url, match, values, not_found,
+  sh,
+  glob, join,
+  pgrep_f, pstree_p, keep_alive,
 } from "../src/Shell.ts";
 
 import {build_www, build_app} from "../src/Build_WWW.ts";
@@ -75,12 +74,14 @@ if (match(
 } // if
 
 if (match("file server stop")) {
-  const {code} = await process(split_whitespace(`pkill -INT -f`).concat(['^deno run .+ file-server start .+']), "inherit");
-  Deno.exit(code);
+  await sh(
+    split_whitespace(`pkill -INT -f`).concat(['^deno run .+ file-server start .+']),
+    "exit"
+  );
 } // if
 
 if (match("file server reload www-browser")) {
-  await exit(process(['pkill', '-USR1', '-f', '^deno run .+bin/_.file_server.ts'], "inherit"));
+  await sh(['pkill', '-USR1', '-f', '^deno run .+bin/_.file_server.ts'], "exit");
 } // if
 
 // =============================================================================
