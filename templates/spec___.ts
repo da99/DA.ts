@@ -1,6 +1,6 @@
 
 import {finish} from "{DA_PATH}/src/Spec.ts";
-import * as path from "https://deno.land/std/path/mod.ts";
+import {path} from "{DA_PATH}/src/da.ts";
 import {exists, ensureDir} from "https://deno.land/std/fs/mod.ts";
 
 const this_file       = (new URL(import.meta.url)).pathname;

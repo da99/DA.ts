@@ -7,7 +7,7 @@ import {content_type, human_bytes, MB, sort_by_key, count} from "../src/da.ts";
 import { readableStreamFromReader } from "https://deno.land/std/streams/conversion.ts";
 import {
   remove_pattern,
-  begin_dot_slash,
+  BEGIN_DOT_SLASH,
   path,
   env_or_throw
 } from "../src/da.ts";

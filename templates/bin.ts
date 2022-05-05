@@ -6,7 +6,7 @@ import {
   yellow, bold, bgRed, white
 } from "{DA_PATH}/src/Shell.ts";
 
-import * as path from "https://deno.land/std/path/mod.ts";
+import {path} from "{DA_PATH}/src/da.ts";
 
 meta_url(import.meta.url);
 
