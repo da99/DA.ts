@@ -13,7 +13,7 @@ import {
   UP_CASE,
   pipe_function,
   count, tail_count
-} from "../src/Function.ts";
+} from "../src/da.ts";
 
 function five_x_five(x: "a" | 0 = 0) {
   if (x === "a")

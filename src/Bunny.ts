@@ -8,7 +8,7 @@ import {
 
 import {
   content_type, human_bytes, MB, sort_by_key, count
-} from "../src/Function.ts";
+} from "../src/da.ts";
 
 import { readableStreamFromReader } from "https://deno.land/std/streams/conversion.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
@@ -16,7 +16,7 @@ import {
   begin_dot_slash,
   path_to_filename,
   env_or_throw
-} from "../src/Function.ts";
+} from "../src/da.ts";
 
 export type CONFIG_OPTIONS    = "PROJECT_NAME" | "BUNNY_DIR" | "BUNNY_URL" | "BUNNY_KEY" | "VERBOSE";
 export const FILE_TS          = ".FILES.ts";

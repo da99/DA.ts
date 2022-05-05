@@ -2,7 +2,7 @@
 
 import {
   content_type, split_whitespace
-} from "../src/Function.ts";
+} from "../src/da.ts";
 
 import {
   yellow, bold, green, bgRed, white,

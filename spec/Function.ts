@@ -5,7 +5,7 @@ import {
   is,
   head_indexes, tail_indexes,
   count, tail_count, count_start_end
-} from "../src/Function.ts";
+} from "../src/da.ts";
 
 // =============================================================================
 describe("count");

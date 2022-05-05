@@ -4,7 +4,7 @@ import {
   create, write, read
 } from "../src/Shell.ts";
 import {insert_after_line_contains} from "../src/Template.ts";
-import {split_whitespace} from "../src/Function.ts";
+import {split_whitespace} from "../src/da.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 
 meta_url(import.meta.url);

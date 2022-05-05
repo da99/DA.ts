@@ -7,7 +7,7 @@ import {
   is as fis,
   pipe_function, max,
   tail_count, split_whitespace, split_lines
-} from "./Function.ts";
+} from "./da.ts";
 
 import * as path from "https://deno.land/std/path/mod.ts";
 import { bold, green, yellow, blue, white, red, bgRed } from "https://deno.land/std/fmt/colors.ts";

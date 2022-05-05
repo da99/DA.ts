@@ -2,7 +2,7 @@
 
 import {
   split_whitespace
-} from "./Function.ts";
+} from "./da.ts";
 
 export function each_block(body: string, raw_begin: string, raw_end: string, f?: (x: string) => void) {
   const begin = split_whitespace(raw_begin);

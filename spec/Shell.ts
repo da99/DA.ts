@@ -8,7 +8,7 @@ import {
 
 import {
   count, split_lines,
-} from "../src/Function.ts";
+} from "../src/da.ts";
 
 function five_x_five(x: "a" | 0 = 0) {
   if (x === "a")

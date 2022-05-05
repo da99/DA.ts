@@ -2,7 +2,7 @@ import { describe, it, equals } from "../src/Spec.ts";
 import {
   split_whitespace,
   split_join,
-} from "../src/Function.ts";
+} from "../src/da.ts";
 import {
   each_block,
   insert_after_line_contains

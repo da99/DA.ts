@@ -4,7 +4,7 @@ import {
   is as fis,
   pipe_function, max,
   tail_count, split_whitespace
-} from "../src/Function.ts";
+} from "../src/da.ts";
 
 export interface Loop_Info {
   count: number;

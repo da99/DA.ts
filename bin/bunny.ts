@@ -3,7 +3,7 @@
 // import * as path from "https://deno.land/std/path/mod.ts";
 import {meta_url, match, not_found, inspect, IS_VERBOSE, fd, sh} from "../src/Shell.ts";
 import { green, red, yellow, bold } from "https://deno.land/std/fmt/colors.ts";
-import {content_type, human_bytes, MB, sort_by_key, count} from "../src/Function.ts";
+import {content_type, human_bytes, MB, sort_by_key, count} from "../src/da.ts";
 import { readableStreamFromReader } from "https://deno.land/std/streams/conversion.ts";
 import * as path from "https://deno.land/std/path/mod.ts";
 import {
@@ -11,7 +11,7 @@ import {
   begin_dot_slash,
   path_to_filename,
   env_or_throw
-} from "../src/Function.ts";
+} from "../src/da.ts";
 
 meta_url(import.meta.url);
 
