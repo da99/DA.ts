@@ -13,12 +13,11 @@ const cmd = Deno.args[0] || "full";
 import "./CLI.ts";
 import "./BIN.ts";
 import "./Array.ts";
-import "./Function.ts";
+import "./da.ts";
 import "./Process.ts";
 import "./Spec.ts";
 import "./String.ts";
 import "./Shell.ts";
-import "./Shell.helpers.ts";
 import "./Build_WWW.ts";
 
 if (cmd === "full") {  }
