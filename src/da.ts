@@ -1,20 +1,43 @@
 
 import {contentType} from "https://deno.land/x/media_types/mod.ts";
-import * as path from "https://deno.land/std/path/mod.ts";
+import * as o_path from "https://deno.land/std/path/mod.ts";
 
 export type Conditional = (x: any) => boolean;
 
-export const begin_dot_slash    = /^\.+\/+/;
-export const end_slash          = /\/+$/;
-export const MB                 = 1024 * 1024;
-export const WHITESPACE_PATTERN = /\s+/
+export const BEGIN_DOT_SLASH        = /^\.+\/+/;
+export const END_SLASH              = /\/+$/;
+export const MULTI_DOT              = /\.+/g;
+export const INVALID_FILE_NAME_CHAR = /[^a-z0-9\.\-\_]+/g;
+export const MB                     = 1024 * 1024;
+export const WHITESPACE_PATTERN     = /\s+/
+
+export function throw_if_null<T>(x: null | T, msg: string): T {
+  if (x === null)
+    throw new Error(msg);
+  return x;
+} // export function
+
+// =============================================================================
+// Network-related:
+// =============================================================================
+
+export function env_or_throw(k: string): string {
+  const x: string | undefined = Deno.env.get(k);
+  if (!x)
+    throw new Error(`environment variable not found: ${Deno.inspect(k)}`);
+  return x;
+} // export function
+
+export function content_type(filename: string): string {
+  return contentType(o_path.basename(filename)) || "application/octet-stream";
+} // export function
+
+// =============================================================================
+// String-related:
+// =============================================================================
 
 export function trim(x: string): string {
   return x.trim();
-} // function
-
-export function length_not_zero(x: {length: number}): boolean {
-  return x.length != 0;
 } // function
 
 export function squeeze_whitespace(s: string) {
@@ -50,15 +73,6 @@ export function split_whitespace(x: string) {
   .filter(length_not_zero);
 } // function
 
-export function human_bytes(n: number): string {
-  const bytes = n;
-  if (bytes < 1024)
-    return `${n} B`;
-  if (bytes < MB)
-    return `${Math.round(bytes/1024)} KB`;
-  return `${Math.round(bytes/MB)} MB`;
-} // export function
-
 export function UP_CASE(s: string) {
   return s.toUpperCase();
 } // export function
@@ -66,6 +80,14 @@ export function UP_CASE(s: string) {
 export function lower_case(s: string) {
   return s.toLowerCase();
 } // export function
+
+// =============================================================================
+// Array-related:
+// =============================================================================
+
+export function length_not_zero(x: {length: number}): boolean {
+  return x.length != 0;
+} // function
 
 export function map_length(arr: any[][]) {
   return arr.map(x => x.length);
@@ -75,6 +97,120 @@ export function sum(arr: number[]) {
   return arr.reduce((p,c) => p + c, 0);
 } // export function
 
+export function max(arr: number[]): number {
+  if (arr.length === 0)
+    throw new Error(`max can't be found: Array empty.`);
+  return arr.reduce(
+    (prev, curr) => ((curr > prev) ? curr : prev),
+     0
+  );
+} // export function
+
+export function head_indexes(target: any[], n: number): number[] {
+  const length        = target.length;
+  const fin: number[] = [];
+  for (let i = 0; i < n && i < length; i++) {
+    fin.push(i);
+  }
+  if (fin.length === 0)
+    throw new Error(`Invalid values for head_indexes(.length ${length}, ${n})`);
+  return fin;
+} // export function
+
+export function tail_indexes(target: any[], n: number): number[] {
+  const length        = target.length;
+  const max_index     = length - 1;
+  const fin: number[] = [];
+  for (let i = 0; i < n && (max_index - i) > -1; i++) {
+    fin.unshift(max_index - i);
+  }
+  if (fin.length === 0)
+    throw new Error(`Invalid values for tail_indexes(.length ${length}, ${n})`);
+  return fin;
+} // export function
+
+export function zip(...arrs: Array<any[]>) {
+  const lengths = arrs.map(x => x.length)
+  if (lengths.length === 0)
+    throw new Error(`No arrays available to be joined.`);
+  if (!is.all_equal(lengths))
+    throw new Error(`Arrays can't be join. Different lengths.`);
+  if (lengths[0] === 0)
+    throw new Error(`Empty arrays can't be combined/zipped: zip(${Deno.inspect(arrs).replaceAll(/^\[|\]$/g, '')})`);
+  const col_count = lengths[0];
+  const cols = [];
+  for (let x = 0; x < col_count; ++x) {
+    const row = [];
+    for (const a of arrs)
+      row.push(a[x]);
+    cols.push(row);
+  }
+  return cols;
+} // export function
+
+// =============================================================================
+// Number-related:
+// =============================================================================
+
+export function human_bytes(n: number): string {
+  const bytes = n;
+  if (bytes < 1024)
+    return `${n} B`;
+  if (bytes < MB)
+    return `${Math.round(bytes/1024)} KB`;
+  return `${Math.round(bytes/MB)} MB`;
+} // export function
+
+export function count(n: number): number[] {
+  const fin: number[] = [];
+  if (n < 1)
+    throw new Error(`Invalid number for: count(${Deno.inspect(n)})`);
+  for (let i = 0; i < n; i++) {
+    fin.push(i);
+  }
+  return fin;
+} // export function
+
+export function count_start_end(start: number, end: number): number[] {
+  if (start > end)
+    return count_start_end(end, start).reverse();
+
+  const fin: number[] = [];
+  for (let i = start; i <= end; ++i) {
+    fin.push(i);
+  }
+  return fin;
+} // export function
+
+export function tail_count(n: number, end_count: number): number[] {
+  const fin: number[] = [];
+  const max_index = end_count - 1;
+  if (n < 1)
+    throw new Error(`Invalid number for: tail_count(${n}, ${end_count})`);
+  if (end_count < 1)
+    throw new Error(`Invalid end number for: tail_count(${n}, ${end_count})`);
+  for (let i = 0; i < n && (max_index - i) > -1; ++i) {
+    fin.unshift(max_index - i);
+  }
+  return fin;
+} // export function
+
+// =============================================================================
+// path:
+// =============================================================================
+export const path = {
+
+  to_filename: function path_to_filename(s: string, replace: string = '.') {
+    return s
+    .replace(BEGIN_DOT_SLASH, '')
+    .replace(END_SLASH, '')
+    .replaceAll(INVALID_FILE_NAME_CHAR, replace)
+    .replaceAll(MULTI_DOT, '.');
+  },
+
+  ...o_path
+}; // export const path
+// =============================================================================
 
 // =============================================================================
 // is:
@@ -144,109 +280,6 @@ export const is = {
 };
 // === end: is =================================================================
 
-export function env_or_throw(k: string): string {
-  const x: string | undefined = Deno.env.get(k);
-  if (!x)
-    throw new Error(`environment variable not found: ${Deno.inspect(k)}`);
-  return x;
-} // export function
-
-
-export function max(arr: number[]): number {
-  if (arr.length === 0)
-    throw new Error(`max can't be found: Array empty.`);
-  return arr.reduce(
-    (prev, curr) => ((curr > prev) ? curr : prev),
-     0
-  );
-} // export function
-
-export function throw_if_null<T>(x: null | T, msg: string): T {
-  if (x === null)
-    throw new Error(msg);
-  return x;
-} // export function
-
-export function count(n: number): number[] {
-  const fin: number[] = [];
-  if (n < 1)
-    throw new Error(`Invalid number for: count(${Deno.inspect(n)})`);
-  for (let i = 0; i < n; i++) {
-    fin.push(i);
-  }
-  return fin;
-} // export function
-
-export function count_start_end(start: number, end: number): number[] {
-  if (start > end)
-    return count_start_end(end, start).reverse();
-
-  const fin: number[] = [];
-  for (let i = start; i <= end; ++i) {
-    fin.push(i);
-  }
-  return fin;
-} // export function
-
-export function tail_count(n: number, end_count: number): number[] {
-  const fin: number[] = [];
-  const max_index = end_count - 1;
-  if (n < 1)
-    throw new Error(`Invalid number for: tail_count(${n}, ${end_count})`);
-  if (end_count < 1)
-    throw new Error(`Invalid end number for: tail_count(${n}, ${end_count})`);
-  for (let i = 0; i < n && (max_index - i) > -1; ++i) {
-    fin.unshift(max_index - i);
-  }
-  return fin;
-} // export function
-
-export function head_indexes(target: any[], n: number): number[] {
-  const length        = target.length;
-  const fin: number[] = [];
-  for (let i = 0; i < n && i < length; i++) {
-    fin.push(i);
-  }
-  if (fin.length === 0)
-    throw new Error(`Invalid values for head_indexes(.length ${length}, ${n})`);
-  return fin;
-} // export function
-
-export function tail_indexes(target: any[], n: number): number[] {
-  const length        = target.length;
-  const max_index     = length - 1;
-  const fin: number[] = [];
-  for (let i = 0; i < n && (max_index - i) > -1; i++) {
-    fin.unshift(max_index - i);
-  }
-  if (fin.length === 0)
-    throw new Error(`Invalid values for tail_indexes(.length ${length}, ${n})`);
-  return fin;
-} // export function
-
-export function zip(...arrs: Array<any[]>) {
-  const lengths = arrs.map(x => x.length)
-  if (lengths.length === 0)
-    throw new Error(`No arrays available to be joined.`);
-  if (!is.all_equal(lengths))
-    throw new Error(`Arrays can't be join. Different lengths.`);
-  if (lengths[0] === 0)
-    throw new Error(`Empty arrays can't be combined/zipped: zip(${Deno.inspect(arrs).replaceAll(/^\[|\]$/g, '')})`);
-  const col_count = lengths[0];
-  const cols = [];
-  for (let x = 0; x < col_count; ++x) {
-    const row = [];
-    for (const a of arrs)
-      row.push(a[x]);
-    cols.push(row);
-  }
-  return cols;
-} // export function
-
-export function content_type(filename: string): string {
-  return contentType(path.basename(filename)) || "application/octet-stream";
-} // export function
-
 // =============================================================================
 // Create functions:
 // =============================================================================
@@ -312,15 +345,6 @@ export function if_string(f: Function) {
   }
 } // export function
 
-export function path_to_filename(replace: string) {
-  return function (s: string) {
-    return s
-    .replace(begin_dot_slash, '')
-    .replace(end_slash, '')
-    .replaceAll(/[^a-z0-9\.\-\_]+/g, replace)
-    .replaceAll(/\.+/g, '.');
-  };
-} // export function
 
 export function remove_pattern(r: RegExp) {
   return function (s: string) {
@@ -351,4 +375,3 @@ export function sort_by_key(k: string) {
     return (ak < bk) ? -1 : 1;
   } // return;
 } // export function
-

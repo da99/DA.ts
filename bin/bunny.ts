@@ -5,11 +5,10 @@ import {meta_url, match, not_found, inspect, IS_VERBOSE, fd, sh} from "../src/Sh
 import { green, red, yellow, bold } from "https://deno.land/std/fmt/colors.ts";
 import {content_type, human_bytes, MB, sort_by_key, count} from "../src/da.ts";
 import { readableStreamFromReader } from "https://deno.land/std/streams/conversion.ts";
-import * as path from "https://deno.land/std/path/mod.ts";
 import {
   remove_pattern,
   begin_dot_slash,
-  path_to_filename,
+  path,
   env_or_throw
 } from "../src/da.ts";
 
@@ -259,7 +258,7 @@ export async function local_files(): Promise<Local_File[]> {
     const arr = str.split('  ');
     arr[0] = arr[0].toUpperCase()
     arr[1] = remove_pattern(begin_dot_slash)(arr[1]);
-    return [arr[1], arr[0], path_to_filename('.')(arr[1])];
+    return [arr[1], arr[0], path.to_filename(arr[1])];
   });
 
   const stat = await Promise.all(

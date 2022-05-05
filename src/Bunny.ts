@@ -11,10 +11,9 @@ import {
 } from "../src/da.ts";
 
 import { readableStreamFromReader } from "https://deno.land/std/streams/conversion.ts";
-import * as path from "https://deno.land/std/path/mod.ts";
 import {
-  begin_dot_slash,
-  path_to_filename,
+  BEGIN_DOT_SLASH,
+  path,
   env_or_throw
 } from "../src/da.ts";
 
@@ -143,11 +142,11 @@ export async function local_files(): Promise<Local_File[]> {
   .map(s => {
     const arr = s.split('  ');
     arr[0] = arr[0].toUpperCase();
-    arr[1] = arr[1].replace(begin_dot_slash, '');
+    arr[1] = arr[1].replace(BEGIN_DOT_SLASH, '');
     return [
       arr[1],
       arr[0],
-      path_to_filename('.')(arr[1])
+      path.to_filename(arr[1])
     ];
   });
 
