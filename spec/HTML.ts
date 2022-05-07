@@ -1,4 +1,4 @@
-import { describe, it, equals } from "../src/Spec.ts";
+import { describe, it, equals, matches } from "../src/Spec.ts";
 import { HTML } from "../src/HTML.ts";
 
 
@@ -20,12 +20,33 @@ it("accepts a string", () => {
   equals(h.to_html(), `<div id="main" class="red">yo</div>`);
 });
 
+it("throws an error if :href attribute is an invalid url", () => {
+  const h = new HTML();
+  let msg = "no error thrown";
+  try {
+    h.a({href: "sdfom"}, "yo");
+  } catch (e) {
+    msg = e.message;
+  }
+  matches(msg, /invalid href attribute/i);
+});
+
+it("throws an error if :href attribute has an unknown protocol", () => {
+  const h = new HTML();
+  let msg = "no error thrown";
+  try {
+    h.a({href: "bittorrent://www.gogle.com"}, "yo");
+  } catch (e) {
+    msg = e.message;
+  }
+  matches(msg, /invalid href attribute/i);
+});
 
 // =============================================================================
 describe(".new_tag()");
 
 it("creates a tag", () => {
   const h = new HTML();
-  h.new_tag("a", {href: "#hello"}, "yo", true);
-  equals(h.to_html(), `<a href="#hello">yo</a>`);
+  h.new_tag("span", "#main01.cool", "yo", true);
+  equals(h.to_html(), `<span id="main01" class="cool">yo</span>`);
 });

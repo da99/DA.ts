@@ -26,8 +26,12 @@ export class HTML {
     } // if end_tag
   } // method
 
-  div(a: Attrs, body: Body) {
-    return this.new_tag('div', a, body, true);
+  div(attrs: Attrs = "", body: Body = "") {
+    return this.new_tag('div', attrs, body, true);
+  } // method
+
+  a(attrs: Attrs, body: Body) {
+    return this.new_tag('a', attrs, body, true);
   } // method
 
   to_html() {
@@ -68,6 +72,33 @@ function attrs_to_string(o: Attrs): string {
     } // if
 
     return Object.entries(o).map(([k,v]) => {
-      return `${k}=${Deno.inspect(v)}`;
+      switch (k) {
+        case "href": {
+          let u: null | URL = null;
+          try {
+            u = new URL(v);
+          } catch (e) {
+            throw new Error(`Invalid href attribute: ${Deno.inspect(v)}`);
+          }
+          const protocol = u.protocol.trim().toLowerCase();
+          switch (protocol) {
+            case "http":
+            case "https":
+            case "ssh":
+            case "ftp":
+            case "sftp":
+            case "magnet":
+            case "gopher": {
+              return `${k}=${Deno.inspect(escape(u.toString()))}`;
+            }
+            default: {
+              throw new Error(`Invalid href attribute: ${Deno.inspect(v)}`);
+            }
+          }
+        }
+        default: {
+          return `${k}=${Deno.inspect(escape(v))}`;
+        }
+      }
     }).join(' ');
   } // function
