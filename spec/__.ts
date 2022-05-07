@@ -19,6 +19,7 @@ import "./Spec.ts";
 import "./String.ts";
 import "./Shell.ts";
 import "./Build_WWW.ts";
+import "./HTML.ts";
 
 if (cmd === "full") {  }
 

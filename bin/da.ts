@@ -6,6 +6,7 @@ import {
   glob, join,
   pgrep_f, pstree_p, keep_alive,
 } from "../src/Shell.ts";
+import {path} from "../src/da.ts";
 
 import {build_www, build_app} from "../src/Build_WWW.ts";
 
@@ -13,8 +14,6 @@ import {create_from_template} from "./_.template.ts";
 import {split_whitespace} from "../src/da.ts";
 import {install_latest as nodejs_install_latest} from "../src/NodeJS.ts";
 import {start} from "./_.file_server.ts";
-
-import * as path from "https://deno.land/std/path/mod.ts";
 
 meta_url(import.meta.url);
 
@@ -32,14 +31,16 @@ if (match("ts bin/test")) {
   await create_from_template("spec___.ts", "spec/__.ts");
 } // if
 
-if (match("spec <Name>")) {
-  const [name] = values() as string[];
-  create_from_template("spec.ts", `spec/${name}.ts`);
+if (match("spec <Name.ts>")) {
+  const [raw_name] = values() as string[];
+  const name = (path.extname(raw_name) === ".ts") ? raw_name : `${raw_name}.ts`;
+  create_from_template("spec.ts", `spec/${name}`);
 } // if
 
 if (match("src <Name>")) {
-  const [name] = values() as string[];
-  create_from_template("src.ts", `src/${name}.ts`);
+  const [raw_name] = values() as string[];
+  const name = (path.extname(raw_name) === ".ts") ? raw_name : `${raw_name}.ts`;
+  create_from_template("src.ts", `src/${name}`);
 } // if
 
 if (match("<zsh|sh|ts> <relative/path/to/file>")) {
