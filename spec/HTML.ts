@@ -20,11 +20,28 @@ it("accepts a string", () => {
   equals(h.to_html(), `<div id="main" class="red">yo</div>`);
 });
 
+it("accepts an :href attribute with a relative file path", () => {
+  const h = new HTML();
+  h.a({href: "file.css"}, "yo");
+  equals(h.to_html(), `<a href="file.css">yo</a>`);
+});
+
+it("throws an error if there are any invalid path characters in a :href attribute with a relative file path", () => {
+  const h = new HTML();
+  let msg = "no error thrown";
+  try {
+    h.a({href: "file^^^.css"}, "yo");
+  } catch (e) {
+    msg = e.message;
+  }
+  matches(msg, /invalid href attribute/i);
+});
+
 it("throws an error if :href attribute is an invalid url", () => {
   const h = new HTML();
   let msg = "no error thrown";
   try {
-    h.a({href: "sdfom"}, "yo");
+    h.a({href: "javascript:sdfom"}, "yo");
   } catch (e) {
     msg = e.message;
   }

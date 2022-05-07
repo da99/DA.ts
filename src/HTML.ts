@@ -78,7 +78,13 @@ function attrs_to_string(o: Attrs): string {
           try {
             u = new URL(v);
           } catch (e) {
-            throw new Error(`Invalid href attribute: ${Deno.inspect(v)}`);
+            const new_v = v
+            .replaceAll(/[^a-z0-9\_\-\.\/]+/ig, '')
+            .replaceAll(/\.+/g, '.')
+            .replaceAll(/\/+/g, '/');
+            if (new_v !== v)
+              throw new Error(`Invalid href attribute: ${Deno.inspect(v)}`);
+            return `${k}=${Deno.inspect(escape(new_v))}`;
           }
           const protocol = u.protocol.trim().toLowerCase();
           switch (protocol) {
@@ -87,6 +93,7 @@ function attrs_to_string(o: Attrs): string {
             case "ssh":
             case "ftp":
             case "sftp":
+            case "git":
             case "magnet":
             case "gopher": {
               return `${k}=${Deno.inspect(escape(u.toString()))}`;
