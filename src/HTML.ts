@@ -2,7 +2,40 @@
 import { escapeHtml as escape } from "https://deno.land/x/escape/mod.ts";
 
 export type Attrs = string | Record<string, string>;
-export type Body = string | ((h: HTML) => void);
+export type Body = string | (() => void);
+
+let PIECES: string[] = [];
+
+export function new_page() {
+  PIECES = [];
+} // function
+
+export function new_tag(name: string, attrs: Attrs, body: Body, end_tag: boolean = true) {
+  PIECES.push(`<${name} ${attrs_to_string(attrs)}`);
+  if (end_tag === true) {
+    PIECES.push('>')
+    if (typeof body === "string") {
+      PIECES.push(escape(body));
+    } else {
+      body();
+    }
+    PIECES.push(`</${name}>`);
+  } else {
+    PIECES.push(` />`);
+  } // if end_tag
+} // export function
+
+export function div(attrs: Attrs = "", body: Body = "") {
+  return new_tag('div', attrs, body, true);
+} // export function
+
+export function a(attrs: Attrs, body: Body) {
+  return new_tag('a', attrs, body, true);
+} // export function
+
+export function to_html() {
+  return PIECES.join('');
+} // export function
 
 export class HTML {
   pieces: string[];
@@ -18,7 +51,7 @@ export class HTML {
       if (typeof body === "string") {
         this.pieces.push(escape(body));
       } else {
-        body(this);
+        body();
       }
       this.pieces.push(`</${name}>`);
     } else {

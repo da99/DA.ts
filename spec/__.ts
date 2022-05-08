@@ -20,6 +20,7 @@ import "./String.ts";
 import "./Shell.ts";
 import "./Build_WWW.ts";
 import "./HTML.ts";
+import "./HTML.dsl.ts";
 
 if (cmd === "full") {  }
 
