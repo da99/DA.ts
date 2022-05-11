@@ -10,8 +10,8 @@ import {
   path
 } from "./da.ts";
 
-import { bold, green, yellow, blue, white, red, bgRed } from "https://deno.land/std/fmt/colors.ts";
-export { bold, green, yellow, blue, white, red, bgRed };
+import { bold, green, yellow, blue, white, red, bgRed, bgWhite } from "https://deno.land/std/fmt/colors.ts";
+export { bold, green, yellow, blue, white, red, bgRed, bgWhite };
 import { readerFromStreamReader, copy as copyIO } from "https://deno.land/std/streams/conversion.ts"
 import {
   emptyDirSync,
