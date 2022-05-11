@@ -108,7 +108,7 @@ export async function start(port: number, render_cmd: string[]) {
   // =============================================================================
   app.use(async (ctx, next) => {
     const pathname = ctx.request.url.pathname;
-    if (!pathname.match(/\.(otf|ttf|txt|woff2?|ico|png|jpe?g|gif|html|js|json|mjs|css)$/)) {
+    if (pathname.at(-1) !== '/' && !pathname.match(/\.(otf|ttf|txt|woff2?|ico|png|jpe?g|gif|html|js|json|mjs|css)$/)) {
       ctx.response.body = `Not found: ${Deno.inspect(pathname)}`;
       ctx.response.status = 404;
       ctx.response.type = "text";
@@ -118,6 +118,12 @@ export async function start(port: number, render_cmd: string[]) {
     const file_path = join('.', ctx.request.url.pathname);
     if (await file_exists(file_path)) {
       await send(ctx, file_path, { root: CONFIG.public_dir, index: "index.html" });
+      return;
+    }
+
+    const index_file_path = join('.', ctx.request.url.pathname, "index.html");
+    if (await file_exists(index_file_path)) {
+      await send(ctx, index_file_path, { root: CONFIG.public_dir, index: "index.html" });
       return;
     }
 
