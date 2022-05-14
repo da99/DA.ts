@@ -1,12 +1,12 @@
 
 
 import {
-  content_type, split_whitespace
+  content_type, split_whitespace, path
 } from "../src/da.ts";
 
 import {
   yellow, bold, green, bgRed, white,
-  join, sh
+  join, sh, read
 } from "../src/Shell.ts";
 
 import {
@@ -41,8 +41,8 @@ const CONFIG = {
 
 async function file_exists(file_path: string): Promise<boolean> {
   try {
-    await Deno.stat(file_path);
-    return true;
+    const s = await Deno.stat(file_path);
+    return s.isFile;
   } catch (e) {
     return false;
   }
@@ -98,6 +98,25 @@ export async function start(port: number, render_cmd: string[]) {
     const target = ctx.sendEvents();
     watches.pop();
     watches.push(target);
+  })
+  .get("/da.ts/reload.js", (ctx) => {
+    ctx.response.body   = `
+    const es = new EventSource("/da.ts/watch");
+    console.log("watching reload: ", new Date());
+    es.onmessage = function (event) {
+      switch (event.data) {
+        case 'reload':
+          window.location.reload();
+        break;
+        default:
+          console.error("--- Unknown server sent message:");
+        console.error(event);
+        console.error("--------------------------------");
+      } // switch
+    };
+    `;
+    ctx.response.status = 200;
+    ctx.response.type   = content_type("file.js");
   });
 
   app.use( router.routes() );
@@ -109,30 +128,72 @@ export async function start(port: number, render_cmd: string[]) {
   app.use(async (ctx, next) => {
     const pathname = ctx.request.url.pathname;
     if (pathname.at(-1) !== '/' && !pathname.match(/\.(otf|ttf|txt|woff2?|ico|png|jpe?g|gif|html|js|json|mjs|css)$/)) {
-      ctx.response.body = `Not found: ${Deno.inspect(pathname)}`;
+      ctx.response.body   = `Not found: ${Deno.inspect(pathname)}`;
       ctx.response.status = 404;
-      ctx.response.type = "text";
+      ctx.response.type   = "text";
       return;
     } // if
 
     const file_path = join('.', ctx.request.url.pathname);
+    const ext       = path.extname(file_path);
+
     if (await file_exists(file_path)) {
-      await send(ctx, file_path, { root: CONFIG.public_dir, index: "index.html" });
+      ctx.response.body   = (file_path.match(/\.html$/)) ? add_js_reload(read.file(file_path)) : read.file(file_path);
+      ctx.response.status = 200;
+      ctx.response.type   = content_type(file_path);
       return;
     }
 
-    const index_file_path = join('.', ctx.request.url.pathname, "index.html");
-    if (await file_exists(index_file_path)) {
-      await send(ctx, index_file_path, { root: CONFIG.public_dir, index: "index.html" });
-      return;
-    }
+    switch (ext) {
+      case ".css": {
+        const less = file_path.replace(/\.css$/, '.less');
+        if (await file_exists(less)) {
+          const result = await sh(`npx lessc ${less}`);
+          if (result.success) {
+            ctx.response.body   = result.stdout;
+            ctx.response.status = 200;
+            ctx.response.type   = content_type(file_path);
+            return;
+          }
+        }
+        break;
+      } // case
+
+      case '.mjs': {
+        const file_ts = file_path.replace(/\.mjs$/, '.ts');
+        if (await file_exists(file_ts)) {
+          const result = await sh(`deno bundle -q ${file_ts}`);
+          if (result.success) {
+            ctx.response.body   = result.stdout;
+            ctx.response.status = 200;
+            ctx.response.type   = content_type("file.js");
+            return;
+          }
+        }
+      } // case
+
+      case '': {
+        const file_html = path.join(file_path, 'index.html');
+        if (await file_exists(file_html)) {
+          ctx.response.body   = add_js_reload(Deno.readTextFileSync(file_html));
+          ctx.response.status = 200;
+          ctx.response.type   = content_type(file_html);
+          return;
+        }
+      }
+    } // switch
+
 
     try {
       const result = await render(file_path);
       switch (result.code) {
         case 0: {
-          ctx.response.body = result.stdout;
-          ctx.response.type = content_type(file_path);
+          const ct = content_type(file_path);
+          ctx.response.type = ct
+          if (path.extname(ct.toLowerCase()) === '.html')
+            ctx.response.body = add_js_reload(result.stdout);
+          else
+            ctx.response.body = result.stdout;
           return;
         }
         case 40: {
@@ -158,7 +219,6 @@ export async function start(port: number, render_cmd: string[]) {
     // await next();
   });
 
-
   // =============================================================================
   // === Listen:
   // =============================================================================
@@ -177,3 +237,7 @@ export async function start(port: number, render_cmd: string[]) {
   // === listen: =================================================================
   return await app.listen({ port: CONFIG["port"] });
 } // export async function
+
+function add_js_reload(str: string): string {
+  return `${str}\n<script defer src="/da.ts/reload.js"></script>`;
+};

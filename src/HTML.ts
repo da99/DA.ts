@@ -107,11 +107,13 @@ function attrs_to_string(o: Attrs): string {
     return Object.entries(o).map(([k,v]) => {
       switch (k) {
         case "href": {
+          v = v.trim();
           let u: null | URL = null;
           try {
             u = new URL(v);
           } catch (e) {
             const new_v = v
+            .trim()
             .replaceAll(/[^a-z0-9\_\-\.\/]+/ig, '')
             .replaceAll(/\.+/g, '.')
             .replaceAll(/\/+/g, '/');

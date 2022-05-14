@@ -82,7 +82,11 @@ if (match("file server stop")) {
 } // if
 
 if (match("file server reload www-browser")) {
-  await sh(['pkill', '-USR1', '-f', '^deno run .+bin/_.file_server.ts'], "exit");
+  const pattern = 'file server start';
+  await Promise.all([
+    sh(['pgrep', '-a', '-f', pattern], 'inherit', 'inherit', true),
+    sh(['pkill', '-USR1', '-f', pattern], "exit")
+  ]);
 } // if
 
 // =============================================================================
